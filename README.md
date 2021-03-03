@@ -428,23 +428,25 @@ they are. The depth information in dipole fitting could be related to
 the area information in the actual dipole sheet, so making a minimal
 distinction between 'upper' and 'lower' may be helpful.
 
-Published works (updated 08/15/2020)
+Published works (updated 03/03/2021)
 ====================================
 
 The dedicated technical paper is not prepared yet. But a couple of
-clinical researches using groupSIFT are already published. In addition
-to these two, there are four papers under review (as of 08/15/2020). Loo
+clinical researches using groupSIFT are already published. Loo
 et al. (2019) has relatively detailed description of the method in
 Supplement (which needs some update).
 
-[Loo et al. (2019) Neural activation and connectivity during cued eye
-blinks in Chronic Tic Disorders. *NeuroImage: Clinical*
-24:101956](https://www.sciencedirect.com/science/article/pii/S2213158219303067?via%3Dihub)
+[Loo et al. (2019) Neural activation and connectivity during cued eye blinks in Chronic Tic Disorders. *NeuroImage: Clinical* 24:101956](https://www.sciencedirect.com/science/article/pii/S2213158219303067?via%3Dihub)
 
-[Koshiyama et al. (in press) Abnormal effective connectivity underlying
-auditory mismatch negativity impairments in schizophrenia. *Biological
-Psychiatry
-CNNI.*](https://www.sciencedirect.com/science/article/abs/pii/S245190222030135X)
+[Koshiyama et al. (2020) Abnormal effective connectivity underlying auditory mismatch negativity impairments in schizophrenia. *Biological Psychiatry CNNI* 5:1028-1039.](https://www.sciencedirect.com/science/article/abs/pii/S245190222030135X)
+
+[Koshiyama et al. (2020) Neurophysiologic Characterization of Resting State Connectivity Abnormalities in Schizophrenia Patients. *Front Psychiatry* 11:608154.](https://www.frontiersin.org/articles/10.3389/fpsyt.2020.608154/full)
+
+[Koshiyama et al. (2020) Auditory-Based Cognitive Training Drives Short- and Long-Term Plasticity in Cortical Networks in Schizophrenia *Schizophrenia Bulletin Open* 1:sgaa065.](https://academic.oup.com/schizbullopen/article/1/1/sgaa065/5998109)
+
+[Miyakoshi et al. (2021) The AudioMaze: An EEG and motion capture study of human spatial navigation in sparse augmented reality. *European Journal of NeuroscienceI* Online ahead of print.](https://onlinelibrary.wiley.com/doi/10.1111/ejn.15131)
+
+
 
 Download (still a beta version, 08/20/2020 updated)
 ===================================================
