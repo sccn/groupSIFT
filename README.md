@@ -445,6 +445,7 @@ Supplement (which needs some update).
 
 [Miyakoshi et al. (2021) The AudioMaze: An EEG and motion capture study of human spatial navigation in sparse augmented reality. *European Journal of NeuroscienceI* Online ahead of print.](https://onlinelibrary.wiley.com/doi/10.1111/ejn.15131)
 
+[Jurgiel et al. (2021) Inhibitory control in children with tic disorder: aberrant fronto-parietal network activity and connectivity *Brain Communications* 3:fcab067.](https://academic.oup.com/braincomms/article/3/2/fcab067/6219298)
 
 
 Download (still a beta version, 08/20/2020 updated)
