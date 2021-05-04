@@ -427,7 +427,7 @@ they are. The depth information in dipole fitting could be related to
 the area information in the actual dipole sheet, so making a minimal
 distinction between 'upper' and 'lower' may be helpful.
 
-Published works (updated 03/03/2021)
+Published works (updated 05/04/2021)
 ====================================
 
 The dedicated technical paper is not prepared yet. But a couple of
