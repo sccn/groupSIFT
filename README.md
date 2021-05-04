@@ -1,7 +1,6 @@
-![Groupsift1.jpg](images/Groupsift1.jpg)
-![Groupsift2.jpg](images/Groupsift2.jpg)
+[![IMAGE ALT TEXT HERE](http://img.youtube.com/vi/jHngHEIsg7Q/0.jpg)](http://www.youtube.com/watch?v=jHngHEIsg7Q)
 
-(Loo et al. 2019 *NeuroImage Clinical*)
+Click to play the movie on Youtube.
 
 This page is for those who wants to cooperate with me to test groupSIFT
 toolbox. Unfortunately, at this point I cannot provide much user
