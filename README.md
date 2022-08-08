@@ -451,9 +451,7 @@ Supplement (which needs some update).
 Download (still a beta version, 08/20/2020 updated)
 ===================================================
 
-[groupSIFT version 0.51](/media:groupSIFT0.51.zip "wikilink") When you
-find a problem, please email
-[me](https://profiles.ucsd.edu/makoto.miyakoshi).
+Please download the zipped file from the top of this page. The current version is 0.51.
 
 Support
 =======
