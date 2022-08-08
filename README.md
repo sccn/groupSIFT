@@ -450,7 +450,7 @@ Supplement (which needs some update).
 
 Download (still a beta version, 08/08/2022 updated)
 ===================================================
-Please download the zipped file from [here, 'Code' -> 'Download ZIP'](https://github.com/sccn/groupSIFT). The current version is 0.51.
+Please download the zipped file from [here](https://github.com/sccn/groupSIFT), 'Code' (the green button) -> 'Download ZIP'. The current version is 0.51.
 
 Support
 =======
