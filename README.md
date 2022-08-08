@@ -448,10 +448,9 @@ Supplement (which needs some update).
 [Jurgiel et al. (2021) Inhibitory control in children with tic disorder: aberrant fronto-parietal network activity and connectivity *Brain Communications* 3:fcab067.](https://academic.oup.com/braincomms/article/3/2/fcab067/6219298)
 
 
-Download (still a beta version, 08/20/2020 updated)
+Download (still a beta version, 08/08/2022 updated)
 ===================================================
-
-Please download the zipped file from the top of this page. The current version is 0.51.
+Please download the zipped file from [here, 'Code' -> 'Download ZIP'](https://github.com/sccn/groupSIFT). The current version is 0.51.
 
 Support
 =======
