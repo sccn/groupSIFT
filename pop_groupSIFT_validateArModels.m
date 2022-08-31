@@ -1,6 +1,7 @@
 % pop_groupSIFT_validateArModels(varargin)
 %
 % History:
+% 08/31/2022 Makoto and Joseph Jurgiel. 'case -1' is changed to 'otherwise'.
 % 06/24/2020 Makoto. Compatible with single subject and/or single-window data for resting state.
 % 12/09/2019 Makoto. Result graphics updated.
 
@@ -172,7 +173,8 @@ meanResults = squeeze(mean(validationResults, 1));
 switch size(validationResults,1) % If single-window analysis.
     case 1
         steResults = zeros(size(meanResults));
-    case ~1
+    % case ~1 % 08/31/2022 Makoto. Thanks Joe Jurgiel.
+    otherwise
         steResults = squeeze(std(validationResults, 0, 1)/sqrt(size(validationResults,1)));
 end
 
