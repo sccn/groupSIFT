@@ -10,7 +10,7 @@ who have good experience with Matlab and SIFT. When you use it, please
 do so at your own risk!
 
 If you are interested in learning basic SIFT functions using its own built-in simulator, see [this
-    page](https://sccn.ucsd.edu/wiki/How_to_run_SIFT_simulation#2._Set_parameters)
+    page](https://sccn.ucsd.edu/wiki/How_to_run_SIFT_simulation)
 
 Environment
 ===========
