@@ -13,20 +13,23 @@
 %  input1, input2, input3, input4: Data matrices. For example, the first dimension is ERP or
 %                                  vectorized time-frequency measure, and the second dimension is
 %                                  ICs or subjects.
-%            repeatedMeasuresFlag: 1, fixed-effect test; 2, mixed-effects test, 1-2 and 3-4 are the pairs; 3, random-effect test.
+%            repeatedMeasuresFlag: 1-paired (aka repeated measures) test; 2-mixed-design test, 1-2 and 3-4 must be paired; 3-two two-sample tests.
 %             pValForPreselection: This determines the cluster size.
 %                    numIteration: Number of bootstrap iteration (recommended: 10000) 
 % 
 % Output   
-%             mask  : logical mask for significant
-%
-%             tScore: The tScore is for input1-input2. Positive result means input1 > input2
-%                     (same as ttest2). This is computed by Zhou-Gao-Hui
-%                     bootstrap method to compute tScore.
-%             pValue: This is computed by standard bootstrap test.
-% surroMassOfCluster: Surroage version of mass of cluster.
+%                mask  : logical mask for significant
+%                tScore: The tScore is for input1-input2. Positive result means input1 > input2
+%                       (same as ttest2). This is computed by Zhou-Gao-Hui
+%                       bootstrap method to compute tScore.
+%               pValue: This is computed by standard bootstrap test.
+%   surroMassOfCluster: [minSurroStats maxSurroStats] The surrogate maximum
+%                       statistics. The data length is 2 x numSorro, in
+%                       which the first half is min-stats and the latter
+%                       half is the max-stats.
 
 % History
+% 03/29/2023 Makoto. Bug fixed. The mixed-design test was using the paird t-test inputs. Annotations corrected.
 % 05/29/2020 Makoto. Bug fixed. tcdf() only left tails was tested, but now both tails.
 % 05/27/2020 Makoto. Sample size added.
 % 05/25/2020 Makoto. Subtraction of subtraction supported.
@@ -66,15 +69,15 @@ input2_2D = reshape(input2, [size(input2,1)*size(input2,2) size(input2,3)]);
 input3_2D = reshape(input3, [size(input3,1)*size(input3,2) size(input3,3)]);
 input4_2D = reshape(input4, [size(input4,1)*size(input4,2) size(input4,3)]);
 
-% For fixed-effect design test.
+% For a paired (aka repeated-measure) test.
 if     repeatedMeasuresFlag == 1
     [~, pValues, ~, stats] = ttest((input1_2D-input2_2D)-(input3_2D-input4_2D));
 
-% For mixed-effects design test.
+% For a mixed-design test.
 elseif repeatedMeasuresFlag == 2
-    [~, pValues, ~, stats] = ttest2((input1_2D-input2_2D)-(input3_2D-input4_2D));
+    [~, pValues, ~, stats] = ttest2(input1_2D-input2_2D, input3_2D-input4_2D);
 
-% For random-effect design test. 05/25/2020 Makoto.
+% For two two-sample tests. 05/25/2020 Makoto.
 elseif repeatedMeasuresFlag == 3
     
     % Compute mean.
