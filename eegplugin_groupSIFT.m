@@ -1,8 +1,11 @@
 % eegplugin_groupSIFT(): A plugin for EEGLAB to integrate SIFT results in
 %                        the group-level. It's one of distribution packages
 %                        of Nima Bigdely-Shamlo's Network Projection.
-
+%
 % Author: Makoto Miyakoshi, SCCN,INC,UCSD
+%
+% History
+% 04/04/2023 Makoto. startup:on;study:on added to force EEGLAB to show it up in the GUI menu.
 
 % Copyright (C) 2016, Makoto Miyakoshi (mmiyakoshi@ucsd.edu) , SCCN,INC,UCSD
 %
@@ -30,8 +33,8 @@
 
 function vers = eegplugin_groupSIFT(fig, try_strings, catch_strings)
 
-% 012/09/2019
-vers = '0.30';
+% 04/04/2023.
+vers = '0.31';
 
 if nargin < 3
     error('eegplugin_groupSIFT requires 3 arguments');
@@ -39,6 +42,7 @@ end;
 
 % create a highLevelMenu
 highLevelMenu = findobj(fig, 'tag', 'tools');
+set(highLevelMenu, 'UserData', 'startup:on;study:on'); % This unlocks 'Tools' menu without loading .set data haha.
 submenu       = uimenu(highLevelMenu, 'label', 'groupSIFT','separator','on');
 
 % add submenu
