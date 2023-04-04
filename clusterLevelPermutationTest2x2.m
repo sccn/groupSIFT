@@ -29,6 +29,7 @@
 %                       half is the max-stats.
 
 % History
+% 04/04/2023 Makoto. Bug fixed. The options repeatedMeasuresFlag == 1 and == 2 were not working because dimensions were transposed. Fixed. Thanks YiLi!
 % 03/29/2023 Makoto. Bug fixed. The mixed-design test was using the paird t-test inputs. Annotations corrected.
 % 05/29/2020 Makoto. Bug fixed. tcdf() only left tails was tested, but now both tails.
 % 05/27/2020 Makoto. Sample size added.
@@ -71,11 +72,11 @@ input4_2D = reshape(input4, [size(input4,1)*size(input4,2) size(input4,3)]);
 
 % For a paired (aka repeated-measure) test.
 if     repeatedMeasuresFlag == 1
-    [~, pValues, ~, stats] = ttest((input1_2D-input2_2D)-(input3_2D-input4_2D));
+    [~, pValues, ~, stats] = ttest([(input1_2D-input2_2D)-(input3_2D-input4_2D)]');
 
 % For a mixed-design test.
 elseif repeatedMeasuresFlag == 2
-    [~, pValues, ~, stats] = ttest2(input1_2D-input2_2D, input3_2D-input4_2D);
+    [~, pValues, ~, stats] = ttest2([input1_2D-input2_2D]', [input3_2D-input4_2D]');
 
 % For two two-sample tests. 05/25/2020 Makoto.
 elseif repeatedMeasuresFlag == 3
@@ -181,12 +182,12 @@ for iterationIdx = 1:numIterations
     
     % For fixed-effect design test.
     if     repeatedMeasuresFlag == 1
-        [~, pValues, ~, stats] = ttest((surro1_2D-surro2_2D)-(surro3_2D-surro4_2D));
-        
+        [~, pValuesSurro, ~, statsSurro] = ttest([(surro1_2D-surro2_2D)-(surro3_2D-surro4_2D)]');
+
         % For mixed-effects design test.
     elseif repeatedMeasuresFlag == 2
-        [~, pValues, ~, stats] = ttest2((surro1_2D-surro2_2D)-(surro3_2D-surro4_2D));
-        
+        [~, pValuesSurro, ~, statsSurro] = ttest2([(surro1_2D-surro2_2D)]', [(surro3_2D-surro4_2D)]');
+
         % For random-effect design test. 05/25/2020 Makoto.
     elseif repeatedMeasuresFlag == 3
         
@@ -227,7 +228,7 @@ for iterationIdx = 1:numIterations
     % Compute cluster statistics
     pValSurro_2D   = reshape(pValuesSurro,     [size(input1,1) size(input1,2)]);
     tScoreSurro_2D = reshape(statsSurro.tstat, [size(input2,1) size(input2,2)]);
-    pvalSurroMask = pValSurro_2D< pValForPreselection;
+    pvalSurroMask = pValSurro_2D < pValForPreselection;
     
     % If no significant result in the uncorrected result, exit (to save time).
     if any(pvalSurroMask(:))==0

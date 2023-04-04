@@ -1,6 +1,7 @@
 % pop_groupSIFT_viewResultsAndExportForMovie(varargin)
 %
 % History
+% 04/04/2023 Makoto. Bug fixed. 'normlen', 'on' added for a workaround for the bug in dipplot().
 % 08/20/2020 Makoto. Bug fixed. Edge name highlighted in red fixed.
 % 08/15/2020 Makoto. Updated. The relation between 'pooling edges' and graph edge-wise multiple comparison correction was clarified. GUI and recommendations changed accordingly. The nature of the surrogate stat distribution of 'mass of cluster' seems to have an interesting property.
 % 07/20/2020 Makoto. Updated. Supported Mike X Cohen's 'Matlab for Brain and Cognitive Scientists' p.245 calculation for determining mass of cluster threshold. Edge-pooled extreme value statistics. GFWER control (u=1), for which see Groppe et al. (2011)
@@ -1232,7 +1233,7 @@ plotColor = {colors{1,1} colors{2,1}};
 % plot axial
 axes(handles.axialAxes)
 dipplot(sources, 'projimg', 'on', 'color', plotColor,  'dipolesize', 40,...
-                 'projlines', 'off', 'coordformat', 'MNI', 'spheres', 'on', 'gui', 'off');
+                 'projlines', 'off', 'coordformat', 'MNI', 'spheres', 'on', 'gui', 'off', 'normlen', 'on');
 set(findall(gca, '-property', 'linewidth'), 'linewidth', 3);       
 view([0 90]);
 hold on % add lines that connects dipoles
@@ -1243,7 +1244,7 @@ arrow3d([posxyz(1,1) posxyz(2,1)], [posxyz(1,2) posxyz(2,2)], [posxyz(1,3) posxy
 % plot sagittal
 axes(handles.sagittalAxes)
 dipplot(sources, 'projimg', 'on', 'color', plotColor,  'dipolesize', 40,...
-                 'projlines', 'off', 'coordformat', 'MNI', 'spheres', 'on', 'gui', 'off');
+                 'projlines', 'off', 'coordformat', 'MNI', 'spheres', 'on', 'gui', 'off', 'normlen', 'on');
 set(findall(gca, '-property', 'linewidth'), 'linewidth', 3);          
 view([90 0]);
 hold on % add lines that connects dipoles
@@ -1254,7 +1255,7 @@ arrow3d([posxyz(1,1) posxyz(2,1)], [posxyz(1,2) posxyz(2,2)], [posxyz(1,3) posxy
 % plot coronal
 axes(handles.coronalAxes)
 dipplot(sources, 'projimg', 'on', 'color', plotColor,  'dipolesize', 40,...
-                 'projlines', 'off', 'coordformat', 'MNI', 'spheres', 'on', 'gui', 'off');
+                 'projlines', 'off', 'coordformat', 'MNI', 'spheres', 'on', 'gui', 'off', 'normlen', 'on');
 set(findall(gca, '-property', 'linewidth'), 'linewidth', 3);             
 set(gcf, 'color', [0.66 0.76 1]);
 view([0 0]);
