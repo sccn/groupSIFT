@@ -430,7 +430,7 @@ they are. The depth information in dipole fitting could be related to
 the area information in the actual dipole sheet, so making a minimal
 distinction between 'upper' and 'lower' may be helpful.
 
-Published works (updated 05/04/2021)
+Published works (updated 05/14/2024)
 ====================================
 
 The dedicated technical paper is not prepared yet. But a couple of
@@ -444,12 +444,15 @@ Supplement (which needs some update).
 
 [Koshiyama et al. (2020) Neurophysiologic Characterization of Resting State Connectivity Abnormalities in Schizophrenia Patients. *Front Psychiatry* 11:608154.](https://www.frontiersin.org/articles/10.3389/fpsyt.2020.608154/full)
 
-[Koshiyama et al. (2020) Auditory-Based Cognitive Training Drives Short- and Long-Term Plasticity in Cortical Networks in Schizophrenia *Schizophrenia Bulletin Open* 1:sgaa065.](https://academic.oup.com/schizbullopen/article/1/1/sgaa065/5998109)
+[Koshiyama et al. (2020) Auditory-Based Cognitive Training Drives Short- and Long-Term Plasticity in Cortical Networks in Schizophrenia. *Schizophrenia Bulletin Open* 1:sgaa065.](https://academic.oup.com/schizbullopen/article/1/1/sgaa065/5998109)
 
 [Miyakoshi et al. (2021) The AudioMaze: An EEG and motion capture study of human spatial navigation in sparse augmented reality. *European Journal of NeuroscienceI* Online ahead of print.](https://onlinelibrary.wiley.com/doi/10.1111/ejn.15131)
 
-[Jurgiel et al. (2021) Inhibitory control in children with tic disorder: aberrant fronto-parietal network activity and connectivity *Brain Communications* 3:fcab067.](https://academic.oup.com/braincomms/article/3/2/fcab067/6219298)
+[Jurgiel et al. (2021) Inhibitory control in children with tic disorder: aberrant fronto-parietal network activity and connectivity. *Brain Communications* 3:fcab067.](https://academic.oup.com/braincomms/article/3/2/fcab067/6219298)
 
+[Jurgiel et al. (2023) Additive and Interactive Effects of Attention-Deficit/Hyperactivity Disorder and Tic Disorder on Brain Connectivity. *Biological Psychiatry: Cognitive Neuroscience and Neuroimaging* 8:1094-1102.](https://www.sciencedirect.com/science/article/pii/S245190222200249X)
+
+[Tseng et al. (2024) Neural Network Dynamics and Brain Oscillations Underlying Aberrant Inhibitory Control in Internet Addiction. *IEEE Transactions on Neural Systems and Rehabilitation Engineering* 32:946-955.](https://ieeexplore.ieee.org/abstract/document/10431676)
 
 Download (still a beta version, 08/08/2022 updated)
 ===================================================
