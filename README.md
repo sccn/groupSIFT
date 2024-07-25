@@ -1,19 +1,18 @@
 [![IMAGE ALT TEXT HERE](http://img.youtube.com/vi/jHngHEIsg7Q/0.jpg)](http://www.youtube.com/watch?v=jHngHEIsg7Q)
-
 Click to play the movie on Youtube. This movie shows the first application of *groupSIFT* in Loo et al. (2019) *NeuroImage: Clinical*
 
+# The GROUPSIFT EEGLAB Plugin
+
 This page is for those who wants to cooperate with me to test groupSIFT
-toolbox. Unfortunately, at this point I cannot provide much user
-support. I know this page does not cover full detail either (including
+toolbox and EEGLAB plugin. Unfortunately, at this point we cannot provide much user
+support. We know this page does not cover full detail either (including
 how to determine SIFT parameters). So this plugin is for advanced user
 who have good experience with Matlab and SIFT. When you use it, please
 do so at your own risk!
 
-If you are interested in learning basic SIFT functions using its own built-in simulator, see [this
-    page](https://sccn.ucsd.edu/wiki/How_to_run_SIFT_simulation)
+If you are interested in learning basic SIFT functions using its own built-in simulator, see [this page](https://sccn.ucsd.edu/wiki/How_to_run_SIFT_simulation)
 
-Environment
-===========
+# Environment
 
 -   I originally developed it with Matlab R2013a runninig on Fedora 22
     (64bit) with dual monitors with 1600 x 1200 resolution. In a recent
@@ -22,8 +21,7 @@ Environment
     dependency on different environments other than Linux. Matlab Image
     Processing Toolbox is necessary to use bwlabel().
 
-Required preprocessing (08/15/2020 updated)
-===========================================
+# Required preprocessing
 
 -   You need EEGLAB .set files that are processed with ICA and
     subsequent IC selection: ALL the ICs in your data will go to SIFT
@@ -53,11 +51,9 @@ Required preprocessing (08/15/2020 updated)
 -   Do not use '_' in the file name. This character needs to be
     preserved to identify prefix words.
 
-groupSIFT GUI menu explained
-============================
+# groupSIFT GUI menu explained
 
-1.Run SIFT Batch
-----------------
+## 1.Run SIFT Batch
 
 Click this item to perform SIFT on the selected multiple .set files by
 batch mode. Again, make sure that this is applied for all the
@@ -109,8 +105,7 @@ has noise near the highest frequency**. I confirmed it with the original
 author of SIFT, Dr. Tim Mullen. It is advised that one always excludes
 near-highest freq results in rPDC.
 
-2.Varidate AR models
---------------------
+## 2.Varidate AR models
 
 Check the summary plots and consider to remove outlier subjects
 (horizontal axis represents set file indices). Check the group-mean
@@ -120,8 +115,7 @@ of datapoint-to-parameter ratio is calculated differently from the
 original paper, so be careful. For detail, see [this
 page](https://sccn.ucsd.edu/wiki/Makoto's_preprocessing_pipeline#SIFT_tips_.2808.2F06.2F2019_updated.29).
 
-3.Convert to group anatomical ROIs
-----------------------------------
+## 3.Convert to group anatomical ROIs
 
 FWHM determines the smoothing width for the dipole density. Typically,
 fMRI==8mm, PET==20mm. You also preselect the minimum number of subjects
@@ -132,8 +126,7 @@ you are satisfied with the estimation, enter the file prefix name
 (again, DO NOT use '_') and press the button in the bottom 'Select ALL
 .set files and START'.
 
-4.Compute t-scores & p-values
------------------------------
+## 4.Compute t-scores & p-values
 
 Specify the folder that has the precomputed results from the process
 above. To test the difference A-B, specify the folders for A and B, and
@@ -147,15 +140,13 @@ cluster-level correction. The *mass of cluster*, sum of t-scores within
 each pixel cluster, is pooled from ALL the edges to determine the
 omnibus correction criterion.
 
-5.Show pre-selected ROIs
-------------------------
+## 5.Show pre-selected ROIs
 
 This plot shows the preselected pairwise dipole density (i.e.,
 unweighted graph edges). *The connectivity measure is this pairwise
 dipole density weighted by rPDC or dDTF*.
 
-6.View results & Export for movie (08/20/2020 updated)
-------------------------------------------------------
+## 6.View results & Export for movie (08/20/2020 updated)
 
 Specify the \*_tStatistics.mat and \*_dipolePairDensity.mat files.
 Enter all the parameters. The 'Cluster-level correction' here determines
@@ -211,8 +202,7 @@ from Loo et al. (2019).
 ![Mccon_gfwer2.png](images/Mccon_gfwer2.png)
 ![Nomcc_previousdefault2.png](images/Nomcc_previousdefault2.png)
 
-How to generate a group-level connectivity movie
-================================================
+# How to generate a group-level connectivity movie
 
 -   The button 'Save the data for movie' is located at the bottom right
     corner of the visualization GUI.
@@ -244,8 +234,7 @@ How to generate a group-level connectivity movie
     and the other for the file name.
 -   "MovieOutputFinename", "prompt" (you need to type it)
 
-How to generate a group-level connectivity movie (12/23/2019 update)
-====================================================================
+# How to generate a group-level connectivity movie (12/23/2019 update)
 
 On the 'pop_viewResultsAndExportForMovie' GUI, there is a 'Output
 individual data' button on the bottom right. When you click it,
@@ -256,8 +245,7 @@ analysis. The output is saved as 'dataSheet' on Matlab 'base' workspace,
 which you can export as csv file. For the case of A-B, you should
 perform for A and B separately (both A and B have the same graph edges).
 
-How to output individual subject data in the case of subtraction (02/26/2020 Updated)
-=====================================================================================
+# How to output individual subject data in the case of subtraction (02/26/2020 Updated)
 
 Currently, this is not supported by GUI. But with fairly simple command
 line operation, you can do it IF THE TWO CONDITIONS ARE WITHIN-SUBJECT.
@@ -297,16 +285,14 @@ I would like the users to fix it themselves following these steps.
     you are looking for, do not forget to check the background of the
     things on surface.
 
-Link to the latest workshop material
-====================================
+# Link to the latest workshop material
 
 [EEGLAB workshop 2017 in
 Tokyo](https://sccn.ucsd.edu/mediawiki/images/7/7c/GroupSIFT.pdf) [Link
 to a movie
 example](https://sccn.ucsd.edu/mediawiki/images/6/6e/GroupSIFT_sagital.zip)
 
-About the custom anatomical labels (07/14/2020 added)
-=====================================================
+# About the custom anatomical labels
 
 groupSIFT uses anatomical labels defined in Automated Anatomical
 Labeling solution (Tzourio-Mazoyar et al., 2002). However, instead of
@@ -430,8 +416,7 @@ they are. The depth information in dipole fitting could be related to
 the area information in the actual dipole sheet, so making a minimal
 distinction between 'upper' and 'lower' may be helpful.
 
-Published works (updated 05/14/2024)
-====================================
+# Published works
 
 The dedicated technical paper is not prepared yet. But a couple of
 clinical researches using groupSIFT are already published. Loo
@@ -454,12 +439,10 @@ Supplement (which needs some update).
 
 [Tseng et al. (2024) Neural Network Dynamics and Brain Oscillations Underlying Aberrant Inhibitory Control in Internet Addiction. *IEEE Transactions on Neural Systems and Rehabilitation Engineering* 32:946-955.](https://ieeexplore.ieee.org/abstract/document/10431676)
 
-Download (still a beta version, 08/08/2022 updated)
-===================================================
+# Download
 Please download the zipped file from [here](https://github.com/sccn/groupSIFT), 'Code' (the green button) -> 'Download ZIP' (the menu item at the botton). The current version is 0.51.
 
-Support
-=======
+# Support
 
 groupSIFT was developed for a project for a study on chronic tic
 disorder (PI Sandra Loo) that was supported by NINDS 80160 and 97484.
