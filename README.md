@@ -269,8 +269,7 @@ using the method explained above, then perform group-level analysis.
 Note that in this case, you have to obtain individual data list for each
 group separately.
 
-Layout issue (06/21/2018 update)
-================================
+# Layout issue (06/21/2018 update)
 
 For unknown reason, GUI layout can be collapsed in your environment.
 Since I can't replicate the issue in my environment, for the time being
