@@ -439,9 +439,7 @@ Supplement (which needs some update).
 [Tseng et al. (2024) Neural Network Dynamics and Brain Oscillations Underlying Aberrant Inhibitory Control in Internet Addiction. *IEEE Transactions on Neural Systems and Rehabilitation Engineering* 32:946-955.](https://ieeexplore.ieee.org/abstract/document/10431676)
 
 # Download
-Please download the zipped file from [here](https://github.com/sccn/groupSIFT), 'Code' (the green button) -> 'Download ZIP' (the menu item at the botton). The current version is 0.51.
+GroupSIFT is NOT in the EEGLAB plugin manager. You may install GroupSIFT by downloading the zipped file from [the GitHub repository](https://github.com/sccn/groupSIFT), 'Code' (the green button) -> 'Download ZIP' (the menu item at the botton). Unzip the file and place the resulting folder in the EEGLAB plugin folder. The current version is 0.51.
 
 # Support
-
-groupSIFT was developed for a project for a study on chronic tic
-disorder (PI Sandra Loo) that was supported by NINDS 80160 and 97484.
+groupSIFT was developed for a project for a study on chronic tic disorder (PI Sandra Loo) that was supported by NINDS 80160 and 97484.
