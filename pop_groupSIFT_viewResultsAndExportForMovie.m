@@ -585,8 +585,8 @@ criticalMassOfCluster_G1 = zeros(1,2);
 
 % ROI mode: no multiple comparison correction for graph edges.
 if     get(handles.mccForGraphEdgesCheckbox, 'Value')==0
-    criticalMassOfCluster(1,1) = prctile(surroMassOfClusterMin(:), clusterLevelPvalue*100); % Use one-tailed test for each (07/20/2020 Makoto)
-    criticalMassOfCluster(1,2) = prctile(surroMassOfClusterMax(:), 100-clusterLevelPvalue*100);
+    criticalMassOfCluster(1,1) = prctile(surroMassOfClusterMin(:), clusterLevelPvalue*100/2);
+    criticalMassOfCluster(1,2) = prctile(surroMassOfClusterMax(:), 100-clusterLevelPvalue*100/2);
 
 % Omnibus correction mode: multiple comparison correction for graph edges on.
 elseif get(handles.mccForGraphEdgesCheckbox, 'Value')==1
@@ -606,13 +606,17 @@ elseif get(handles.mccForGraphEdgesCheckbox, 'Value')==1
         surroMassOfClusterMinMin = surroMassOfClusterMinSorted(:,1);
         surroMassOfClusterMaxMax = surroMassOfClusterMaxSorted(:,1);
     elseif get(handles.useGfwerCheckbox, 'Value')==1
-        disp('Generalized FWER control option is on; Note at least 1 result is false positive.')
+        if size(surroMassOfClusterMinSorted, 2) < 2
+            error('groupSIFT:InsufficientEdgesForGfwer', ...
+                'GFWER with u=1 requires at least two graph edges.')
+        end
+        disp('Generalized FWER control (u=1) is on: P(more than one false-positive cluster) is controlled at alpha.')
         surroMassOfClusterMinMin = surroMassOfClusterMinSorted(:,2);
         surroMassOfClusterMaxMax = surroMassOfClusterMaxSorted(:,2);
     end
-    
-    criticalMassOfCluster(1,1) = prctile(min(surroMassOfClusterMinMin, [], 2), clusterLevelPvalue*100);
-    criticalMassOfCluster(1,2) = prctile(max(surroMassOfClusterMaxMax, [], 2), 100-clusterLevelPvalue*100);
+
+    criticalMassOfCluster(1,1) = prctile(min(surroMassOfClusterMinMin, [], 2), clusterLevelPvalue*100/2);
+    criticalMassOfCluster(1,2) = prctile(max(surroMassOfClusterMaxMax, [], 2), 100-clusterLevelPvalue*100/2);
     clear surroMassOfClusterMinSorted surroMassOfClusterMaxSorted
 end
 
@@ -623,19 +627,20 @@ for n = 1:size(clusterMask,1)
     % Identify all blobs that survive the cluster-level threthold (pooled across edges)
     tmpBlobMask    = squeeze(clusterMask(n,:,:));
     tmpTStatistics = squeeze(tStatistics(n,:,:));
-    [entryCount, blobId]  = hist(tmpBlobMask(:), unique(tmpBlobMask(:)));
-    tmpMassOfCluster = zeros(length(blobId)-1,1);
-    for m = 2:length(blobId)
+    blobId = unique(tmpBlobMask(:));
+    blobId(blobId == 0) = [];
+    tmpMassOfCluster = zeros(length(blobId),1);
+    for m = 1:length(blobId)
         currentMask = tmpBlobMask==blobId(m);
-        tmpMassOfCluster(m-1) = sum(sum(currentMask.*tmpTStatistics));
+        tmpMassOfCluster(m) = sum(sum(currentMask.*tmpTStatistics));
     end
-    survivedClusterMaskIdx = find(tmpMassOfCluster < criticalMassOfCluster(1) | tmpMassOfCluster > criticalMassOfCluster(2));
+    survivedClusterLabels = blobId(tmpMassOfCluster < criticalMassOfCluster(1) | tmpMassOfCluster > criticalMassOfCluster(2));
     
     % Combine the survived blobs.
-    if ~isempty(survivedClusterMaskIdx)
+    if ~isempty(survivedClusterLabels)
         combinedMask = zeros([size(clusterMask,2) size(clusterMask,3)]);
-        for clusterMaskIdx = 1:length(survivedClusterMaskIdx)
-            currentMask = tmpBlobMask==survivedClusterMaskIdx(clusterMaskIdx);
+        for clusterMaskIdx = 1:length(survivedClusterLabels)
+            currentMask = tmpBlobMask==survivedClusterLabels(clusterMaskIdx);
             
             % If currentMask is a row vector, transpose it. (06/28/2020 Makoto)
             if size(currentMask,1)==1 

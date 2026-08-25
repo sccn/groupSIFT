@@ -1,251 +1,260 @@
-% clusterLevelPermutationTest2x2() - Performs permutation test between 2x2 samples. For multiple comparison
-%                                    correction, cluster-level correction is applied [1].
-%                              
-% Reference: [1] Groppe, Urbach, Kutas, 2011. Mass univariate analysis of
-%                event-related brain potentials/fields I: A critical tutorial
-%                review. Psychophysiology, xx, 1-15. (See also Korn et al.,
-%                2004)
+function [mask, tScore, pValue, surroMassOfCluster] = clusterLevelPermutationTest2x2(input1, input2, input3, input4, repeatedMeasuresFlag, pValForPreselection, numIterations, randomSeed)
+% clusterLevelPermutationTest2x2() - Cluster test for a 2-by-2 interaction.
 %
-% Usage
-%   >> [mask, tScore, pValue, surroMassOfCluster] = clusterLevelPermutationTest2x2(input1, input2, input3, input4, repeatedMeasuresFlag, pValForPreselection, numIterations)
-% 
-% Input
-%  input1, input2, input3, input4: Data matrices. For example, the first dimension is ERP or
-%                                  vectorized time-frequency measure, and the second dimension is
-%                                  ICs or subjects.
-%            repeatedMeasuresFlag: 1-paired (aka repeated measures) test; 2-mixed-design test, 1-2 and 3-4 must be paired; 3-two two-sample tests.
-%             pValForPreselection: This determines the cluster size.
-%                    numIteration: Number of bootstrap iteration (recommended: 10000) 
-% 
-% Output   
-%                mask  : logical mask for significant
-%                tScore: The tScore is for input1-input2. Positive result means input1 > input2
-%                       (same as ttest2). This is computed by Zhou-Gao-Hui
-%                       bootstrap method to compute tScore.
-%               pValue: This is computed by standard bootstrap test.
-%   surroMassOfCluster: [minSurroStats maxSurroStats] The surrogate maximum
-%                       statistics. The data length is 2 x numSorro, in
-%                       which the first half is min-stats and the latter
-%                       half is the max-stats.
+% repeatedMeasuresFlag:
+%   1 - all four cells contain the same subjects.
+%   2 - cells 1/2 and 3/4 are paired within two independent groups.
+%   3 - all four cells are independent. Permutation tests the strong null
+%       that observations are exchangeable across all four cells.
+%
+% The tested contrast is (input1-input2) - (input3-input4). Positive and
+% negative clusters are formed separately. The optional final input may be
+% a scalar RNG seed or a randomization-plan structure. A repeated design
+% uses plan.signs; mixed and independent designs use plan.uniformScores.
+% The caller's RNG state is restored after scalar-seed use.
 
-% History
-% 04/04/2023 Makoto. Bug fixed. The options repeatedMeasuresFlag == 1 and == 2 were not working because dimensions were transposed. Fixed. Thanks YiLi!
-% 03/29/2023 Makoto. Bug fixed. The mixed-design test was using the paird t-test inputs. Annotations corrected.
-% 05/29/2020 Makoto. Bug fixed. tcdf() only left tails was tested, but now both tails.
-% 05/27/2020 Makoto. Sample size added.
-% 05/25/2020 Makoto. Subtraction of subtraction supported.
-% 03/02/2017 Makoto. Created.
-%
-% Copyright (C) 2020, Makoto Miyakoshi (mmiyakoshi@ucsd.edu) , SCCN,INC,UCSD
-%
-% Redistribution and use in source and binary forms, with or without
-% modification, are permitted provided that the following conditions are met:
-%
-% 1. Redistributions of source code must retain the above copyright notice,
-% this list of conditions and the following disclaimer.
-%
-% 2. Redistributions in binary form must reproduce the above copyright notice,
-% this list of conditions and the following disclaimer in the documentation
-% and/or other materials provided with the distribution.
-%
-% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-% IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-% ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-% LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-% INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-% CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
-% THE POSSIBILITY OF SUCH DAMAGE.
+if nargin < 8
+    randomSeed = [];
+end
+inputs = {input1, input2, input3, input4};
+validateInputs(inputs, repeatedMeasuresFlag, pValForPreselection, numIterations, randomSeed);
 
-function [mask, tScore, pValue, surroMassOfCluster] = clusterLevelPermutationTest2x2(input1, input2, input3, input4, repeatedMeasuresFlag, pValForPreselection, numIterations)
+randomizationPlan = [];
+if isstruct(randomSeed)
+    randomizationPlan = randomSeed;
+elseif ~isempty(randomSeed)
+    previousRngState = rng;
+    restoreRng = onCleanup(@() rng(previousRngState)); %#ok<NASGU>
+    rng(randomSeed, 'twister');
+end
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Perform t-test for true difference %%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-input1_2D = reshape(input1, [size(input1,1)*size(input1,2) size(input1,3)]);
-input2_2D = reshape(input2, [size(input2,1)*size(input2,2) size(input2,3)]);
-input3_2D = reshape(input3, [size(input3,1)*size(input3,2) size(input3,3)]);
-input4_2D = reshape(input4, [size(input4,1)*size(input4,2) size(input4,3)]);
+spatialSize = [size(input1, 1), size(input1, 2)];
+input2D = cell(1, 4);
+for inputIdx = 1:4
+    input2D{inputIdx} = reshape(inputs{inputIdx}, prod(spatialSize), size(inputs{inputIdx}, 3));
+end
 
-% For a paired (aka repeated-measure) test.
-if     repeatedMeasuresFlag == 1
-    [~, pValues, ~, stats] = ttest([(input1_2D-input2_2D)-(input3_2D-input4_2D)]');
+[pValues, observedT] = interactionStatistic(input2D, repeatedMeasuresFlag);
+pValue = reshape(pValues, spatialSize);
+tScore = reshape(observedT, spatialSize);
+[mask, ~] = groupSIFT_labelClusters(pValue, tScore, pValForPreselection);
 
-% For a mixed-design test.
+surroMassOfCluster = zeros(numIterations, 2);
+if repeatedMeasuresFlag == 1
+    interactionDifference = (input2D{1} - input2D{2}) - (input2D{3} - input2D{4});
+    if ~isempty(randomizationPlan)
+        validateRandomizationPlan(randomizationPlan, 'signs', ...
+            numIterations, size(interactionDifference, 2));
+    end
 elseif repeatedMeasuresFlag == 2
-    [~, pValues, ~, stats] = ttest2([input1_2D-input2_2D]', [input3_2D-input4_2D]');
-
-% For two two-sample tests. 05/25/2020 Makoto.
-elseif repeatedMeasuresFlag == 3
-    
-    % Compute mean.
-    X1_bar = mean(input1_2D,2);
-    X2_bar = mean(input2_2D,2);
-    X3_bar = mean(input3_2D,2);
-    X4_bar = mean(input4_2D,2);
-    
-    % Compute variance.
-    sSq1 = var(input1_2D,1,2);
-    sSq2 = var(input2_2D,1,2);
-    sSq3 = var(input3_2D,1,2);
-    sSq4 = var(input4_2D,1,2);
-    
-    % Compute mean, variance, and sample size for (X1-X2) and (X3-X4)
-    X12_bar = X1_bar - X2_bar;
-    sSq12   = sSq1   + sSq2;
-    X34_bar = X3_bar - X4_bar;
-    sSq34   = sSq3   + sSq4;    
-    % N12     = (size(input1_2D,2) + size(input2_2D,2))/2; % This was not found in a textbook, but this should be fine.
-    % N34     = (size(input3_2D,2) + size(input4_2D,2))/2;
-    N12     = size(input1_2D,2) + size(input2_2D,2); % On the second thought, I thought sample sizes needs to be added.
-    N34     = size(input3_2D,2) + size(input4_2D,2);
-    
-    % Perform Welch's t-test. See Wikipedia Welch's t-test.
-    stats.tstat = (X12_bar - X34_bar) ./ sqrt(sSq12/N12 + sSq34/N34);
-    
-    % Compute degrees of freedom using Welch-Satterthwaite equation. This
-    % equasion is used to obtain effective degrees of freedom in the
-    % calse of linear combination of independent samples.
-    nu               = (sSq12/N12 + sSq34/N34).^2 ./ (sSq12.^2/(N12.^2*(N12-1)) + sSq34.^2/(N34.^2*(N34-1)));
-    percentileValues = tcdf(stats.tstat, nu);
-    combinedPercentileValues = [percentileValues 1-percentileValues];
-    pValues = min(combinedPercentileValues,[],2);
-
-        % % Visualization for debugging.
-        % plotData = reshape(stats.tstat, [40 103]);
-        % figure
-        % imagesc(plotData); axis xy
-        % hold on
-        % significantMask = bwlabeln(reshape(pValues<0.05, [40 103]));
-        % contour(logical(significantMask), 'color', [0 0 0])
+    group1Difference = input2D{1} - input2D{2};
+    group2Difference = input2D{3} - input2D{4};
+    combinedDifferences = [group1Difference, group2Difference];
+    numberInGroup1 = size(group1Difference, 2);
+    if ~isempty(randomizationPlan)
+        validateRandomizationPlan(randomizationPlan, 'uniformScores', ...
+            numIterations, size(combinedDifferences, 2));
+    end
+else
+    combinedData = [input2D{:}];
+    cellSizes = cellfun(@(x) size(x, 2), input2D);
+    cumulativeCellSizes = cumsum(cellSizes);
+    if ~isempty(randomizationPlan)
+        validateRandomizationPlan(randomizationPlan, 'uniformScores', ...
+            numIterations, size(combinedData, 2));
+    end
 end
 
-% Compute cluster statistics.
-pVal_2D   = reshape(pValues,     [size(input1,1) size(input1,2)]);
-tScore_2D = reshape(stats.tstat, [size(input2,1) size(input2,2)]);
-pvalMask  = pVal_2D < pValForPreselection;
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% If no significant result in the uncorrected result, exit (to save time). %%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if any(pvalMask(:))==0
-    disp('No significant result.')
-    mask               = zeros(size(input1,1), size(input1,2));
-    tScore             = zeros(size(input1,1), size(input1,2));
-    pValue             = ones( size(input1,1), size(input1,2));
-    surroMassOfCluster = zeros(numIterations, 2);
-    return
-end
-
-
-
-% Extract clusters of significant pixels.
-connectedComponentLabels = bwlabeln(pvalMask); % This requires image processing toolbox
-[entryCount, blobId]  = hist(connectedComponentLabels(:), unique(connectedComponentLabels(:)));
-massOfCluster = zeros(length(blobId),1);
-for n = 1:length(blobId)
-    currentMask = connectedComponentLabels==blobId(n);
-    massOfCluster(n) = sum(sum(currentMask.*tScore_2D));
-end
-massOfCluster = massOfCluster(2:end);
-
-% Prepare outputs.
-tScore = tScore_2D;
-pValue = pVal_2D;
-mask   = connectedComponentLabels;
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Perform surrogate test %%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-surroMassOfCluster = zeros(numIterations,2);
-combinedData = [input1_2D input2_2D input3_2D input4_2D];
-input1Length = size(input1_2D,2);
-input2Length = size(input2_2D,2);
-input3Length = size(input3_2D,2);
-input4Length = size(input4_2D,2);
-permSize     = size(combinedData,2);
 for iterationIdx = 1:numIterations
-    
-    % Generate surrogate data using permutation.
-    permIdx = randperm(permSize);
-    surro1_2D = combinedData(:,permIdx(1:input1Length));
-    surro2_2D = combinedData(:,permIdx(input1Length+1:(input1Length+input2Length)));
-    surro3_2D = combinedData(:,permIdx((input1Length+input2Length)+1:(input1Length+input2Length+input3Length)));
-    surro4_2D = combinedData(:,permIdx((input1Length+input2Length+input3Length)+1:end));
-    
-    % For fixed-effect design test.
-    if     repeatedMeasuresFlag == 1
-        [~, pValuesSurro, ~, statsSurro] = ttest([(surro1_2D-surro2_2D)-(surro3_2D-surro4_2D)]');
-
-        % For mixed-effects design test.
+    if repeatedMeasuresFlag == 1
+        if isempty(randomizationPlan)
+            randomSigns = ones(1, size(interactionDifference, 2));
+            randomSigns(rand(1, size(interactionDifference, 2)) < 0.5) = -1;
+        else
+            randomSigns = randomizationPlan.signs(iterationIdx, :);
+        end
+        surrogateDifference = bsxfun(@times, interactionDifference, randomSigns);
+        [~, pValuesSurro, ~, statsSurro] = ttest(surrogateDifference');
+        surrogateT = statsSurro.tstat;
+        surrogateEffect = mean(surrogateDifference, 2)';
+        [pValuesSurro, surrogateT] = normalizeDegenerateStatistics( ...
+            pValuesSurro, surrogateT, surrogateEffect);
     elseif repeatedMeasuresFlag == 2
-        [~, pValuesSurro, ~, statsSurro] = ttest2([(surro1_2D-surro2_2D)]', [(surro3_2D-surro4_2D)]');
+        if isempty(randomizationPlan)
+            permutationIdx = randperm(size(combinedDifferences, 2));
+        else
+            [~, permutationIdx] = sort(randomizationPlan.uniformScores(iterationIdx, :));
+        end
+        surrogateGroup1 = combinedDifferences(:, permutationIdx(1:numberInGroup1));
+        surrogateGroup2 = combinedDifferences(:, permutationIdx(numberInGroup1 + 1:end));
+        [~, pValuesSurro, ~, statsSurro] = ttest2( ...
+            surrogateGroup1', surrogateGroup2', 'Vartype', 'unequal');
+        surrogateT = statsSurro.tstat;
+        surrogateEffect = mean(surrogateGroup1, 2)' - mean(surrogateGroup2, 2)';
+        [pValuesSurro, surrogateT] = normalizeDegenerateStatistics( ...
+            pValuesSurro, surrogateT, surrogateEffect);
+    else
+        if isempty(randomizationPlan)
+            permutationIdx = randperm(size(combinedData, 2));
+        else
+            [~, permutationIdx] = sort(randomizationPlan.uniformScores(iterationIdx, :));
+        end
+        surrogateInputs = cell(1, 4);
+        startIdx = 1;
+        for cellIdx = 1:4
+            stopIdx = cumulativeCellSizes(cellIdx);
+            surrogateInputs{cellIdx} = combinedData(:, permutationIdx(startIdx:stopIdx));
+            startIdx = stopIdx + 1;
+        end
+        [pValuesSurro, surrogateT] = welchInteraction(surrogateInputs);
+    end
 
-        % For random-effect design test. 05/25/2020 Makoto.
-    elseif repeatedMeasuresFlag == 3
-        
-        % Compute mean.
-        X1_bar = mean(surro1_2D,2);
-        X2_bar = mean(surro2_2D,2);
-        X3_bar = mean(surro3_2D,2);
-        X4_bar = mean(surro4_2D,2);
-        
-        % Compute variance.
-        sSq1 = var(surro1_2D,1,2);
-        sSq2 = var(surro2_2D,1,2);
-        sSq3 = var(surro3_2D,1,2);
-        sSq4 = var(surro4_2D,1,2);
-        
-        % Compute mean, variance, and sample size for (X1-X2) and (X3-X4)
-        X12_bar = X1_bar - X2_bar;
-        sSq12   = sSq1   + sSq2;
-        X34_bar = X3_bar - X4_bar;
-        sSq34   = sSq3   + sSq4;
-        % N12     = (size(surro1_2D,2) + size(surro2_2D,2))/2; % This was not found in a textbook, but this should be fine.
-        % N34     = (size(surro3_2D,2) + size(surro4_2D,2))/2;
-        N12     = size(surro1_2D,2) + size(surro2_2D,2); % On the second thought, I thought sample sizes needs to be added.
-        N34     = size(surro3_2D,2) + size(surro4_2D,2);
-        
-        % Perform Welch's t-test. See Wikipedia Welch's t-test.
-        statsSurro.tstat = (X12_bar - X34_bar) ./ sqrt(sSq12/N12 + sSq34/N34);
-        
-        % Compute degrees of freedom using Welch-Satterthwaite equation. This
-        % equasion is used to obtain effective degrees of freedom in the
-        % calse of linear combination of independent samples.
-        nuSurro      = (sSq12/N12 + sSq34/N34).^2 ./ (sSq12.^2/(N12.^2*(N12-1)) + sSq34.^2/(N34.^2*(N34-1)));
-        percentileValuesSurro = tcdf(statsSurro.tstat, nuSurro);
-        combinedPercentileValuesSurro = [percentileValuesSurro 1-percentileValuesSurro];
-        pValuesSurro = min(combinedPercentileValuesSurro,[],2);
+    pValueSurro = reshape(pValuesSurro, spatialSize);
+    tScoreSurro = reshape(surrogateT, spatialSize);
+    [~, clusterMasses] = groupSIFT_labelClusters( ...
+        pValueSurro, tScoreSurro, pValForPreselection);
+    surroMassOfCluster(iterationIdx, :) = extremeMasses(clusterMasses);
+end
+end
+
+function [pValues, tStatistics] = interactionStatistic(input2D, designFlag)
+if designFlag == 1
+    interactionDifference = (input2D{1} - input2D{2}) - (input2D{3} - input2D{4});
+    [~, pValues, ~, stats] = ttest(interactionDifference');
+    tStatistics = stats.tstat;
+    effect = mean(interactionDifference, 2)';
+    [pValues, tStatistics] = normalizeDegenerateStatistics(pValues, tStatistics, effect);
+elseif designFlag == 2
+    group1Difference = input2D{1} - input2D{2};
+    group2Difference = input2D{3} - input2D{4};
+    [~, pValues, ~, stats] = ttest2( ...
+        group1Difference', group2Difference', 'Vartype', 'unequal');
+    tStatistics = stats.tstat;
+    effect = mean(group1Difference, 2)' - mean(group2Difference, 2)';
+    [pValues, tStatistics] = normalizeDegenerateStatistics(pValues, tStatistics, effect);
+else
+    [pValues, tStatistics] = welchInteraction(input2D);
+end
+end
+
+function [pValues, tStatistics] = welchInteraction(input2D)
+means = cellfun(@(x) mean(x, 2), input2D, 'UniformOutput', false);
+variances = cellfun(@(x) var(x, 0, 2), input2D, 'UniformOutput', false);
+sampleSizes = cellfun(@(x) size(x, 2), input2D);
+
+contrast = means{1} - means{2} - means{3} + means{4};
+varianceTerms = cell(1, 4);
+for cellIdx = 1:4
+    varianceTerms{cellIdx} = variances{cellIdx} ./ sampleSizes(cellIdx);
+end
+standardErrorSquared = varianceTerms{1} + varianceTerms{2} + ...
+    varianceTerms{3} + varianceTerms{4};
+tStatistics = contrast ./ sqrt(standardErrorSquared);
+
+degreesDenominator = zeros(size(standardErrorSquared));
+for cellIdx = 1:4
+    degreesDenominator = degreesDenominator + ...
+        varianceTerms{cellIdx}.^2 ./ (sampleSizes(cellIdx) - 1);
+end
+degreesOfFreedom = standardErrorSquared.^2 ./ degreesDenominator;
+pValues = 2 .* tcdf(-abs(tStatistics), degreesOfFreedom);
+
+zeroVarianceMask = standardErrorSquared == 0;
+tStatistics(zeroVarianceMask & contrast == 0) = 0;
+pValues(zeroVarianceMask & contrast == 0) = 1;
+tStatistics(zeroVarianceMask & contrast ~= 0) = sign(contrast(zeroVarianceMask & contrast ~= 0)) .* Inf;
+pValues(zeroVarianceMask & contrast ~= 0) = 0;
+end
+
+function [pValues, tStatistics] = normalizeDegenerateStatistics(pValues, tStatistics, effect)
+invalidMask = isnan(pValues) | isnan(tStatistics);
+zeroEffectMask = invalidMask & (effect == 0);
+nonzeroEffectMask = invalidMask & (effect ~= 0);
+tStatistics(zeroEffectMask) = 0;
+pValues(zeroEffectMask) = 1;
+tStatistics(nonzeroEffectMask) = sign(effect(nonzeroEffectMask)) .* Inf;
+pValues(nonzeroEffectMask) = 0;
+end
+
+function extremes = extremeMasses(clusterMasses)
+negativeMasses = clusterMasses(clusterMasses < 0);
+positiveMasses = clusterMasses(clusterMasses > 0);
+extremes = [0, 0];
+if ~isempty(negativeMasses)
+    extremes(1) = min(negativeMasses);
+end
+if ~isempty(positiveMasses)
+    extremes(2) = max(positiveMasses);
+end
+end
+
+function validateInputs(inputs, designFlag, pThreshold, numIterations, randomSeed)
+spatialSize = [size(inputs{1}, 1), size(inputs{1}, 2)];
+sampleSizes = zeros(1, 4);
+for inputIdx = 1:4
+    currentInput = inputs{inputIdx};
+    if ~isnumeric(currentInput) || ~isreal(currentInput) || isempty(currentInput)
+        error('groupSIFT:InvalidInput', 'All inputs must be non-empty real numeric arrays.');
     end
-    
-    % Compute cluster statistics
-    pValSurro_2D   = reshape(pValuesSurro,     [size(input1,1) size(input1,2)]);
-    tScoreSurro_2D = reshape(statsSurro.tstat, [size(input2,1) size(input2,2)]);
-    pvalSurroMask = pValSurro_2D < pValForPreselection;
-    
-    % If no significant result in the uncorrected result, exit (to save time).
-    if any(pvalSurroMask(:))==0
-        % disp('No significant result.')
-        continue
+    if any(~isfinite(currentInput(:)))
+        error('groupSIFT:NonfiniteInput', 'Inputs must not contain NaN or Inf values.');
     end
-    
-    % Extract clusters of significant pixels
-    connectedComponentLabels = bwlabeln(pvalSurroMask); % This requires image processing toolbox
-    [entryCount, blobId]  = hist(connectedComponentLabels(:), unique(connectedComponentLabels(:)));
-    massOfClusterSurro = zeros(length(blobId),1);
-    for n = 1:length(blobId)
-        currentMask = connectedComponentLabels==blobId(n);
-        massOfClusterSurro(n) = sum(sum(currentMask.*tScore_2D));
+    if size(currentInput, 1) ~= spatialSize(1) || size(currentInput, 2) ~= spatialSize(2)
+        error('groupSIFT:SpatialSizeMismatch', ...
+            'The first two dimensions of all four inputs must match.');
     end
-    massOfClusterSurro = massOfClusterSurro(2:end);
-    
-    % Store the minimum and maximum of massOfClusterSurro
-    surroMassOfCluster(iterationIdx,:) = [min(massOfClusterSurro) max(massOfClusterSurro)];
+    sampleSizes(inputIdx) = size(currentInput, 3);
+    if sampleSizes(inputIdx) < 2
+        error('groupSIFT:InsufficientSampleSize', ...
+            'Every cell must contain at least two subjects.');
+    end
+end
+if ~isscalar(designFlag) || ~ismember(designFlag, [1, 2, 3])
+    error('groupSIFT:InvalidDesignFlag', ...
+        'repeatedMeasuresFlag must be 1, 2, or 3.');
+end
+if designFlag == 1 && any(sampleSizes ~= sampleSizes(1))
+    error('groupSIFT:RepeatedSampleSizeMismatch', ...
+        'A fully repeated design requires equal subject counts in all four cells.');
+end
+if designFlag == 2 && (sampleSizes(1) ~= sampleSizes(2) || sampleSizes(3) ~= sampleSizes(4))
+    error('groupSIFT:MixedSampleSizeMismatch', ...
+        'A mixed design requires equal subject counts within cells 1/2 and 3/4.');
+end
+if ~isscalar(pThreshold) || ~isfinite(pThreshold) || pThreshold <= 0 || pThreshold >= 1
+    error('groupSIFT:InvalidClusterThreshold', ...
+        'pValForPreselection must be a scalar strictly between 0 and 1.');
+end
+if ~isscalar(numIterations) || ~isfinite(numIterations) || ...
+        numIterations < 1 || numIterations ~= floor(numIterations)
+    error('groupSIFT:InvalidIterationCount', ...
+        'numIterations must be a positive integer.');
+end
+if isstruct(randomSeed) && ~isscalar(randomSeed)
+    error('groupSIFT:InvalidRandomizationPlan', ...
+        'The randomization plan must be a scalar structure.');
+end
+if ~isempty(randomSeed) && ~isstruct(randomSeed) && ...
+        (~isscalar(randomSeed) || ~isfinite(randomSeed) || ...
+        randomSeed < 0 || randomSeed ~= floor(randomSeed))
+    error('groupSIFT:InvalidRandomSeed', ...
+        'randomSeed must be empty, a nonnegative integer scalar, or a randomization-plan structure.');
+end
+end
+
+function validateRandomizationPlan(plan, fieldName, numberOfIterations, numberOfSubjects)
+if ~isfield(plan, fieldName)
+    error('groupSIFT:InvalidRandomizationPlan', ...
+        'The randomization plan must contain a %s field.', fieldName);
+end
+values = plan.(fieldName);
+if ~isnumeric(values) || ~isequal(size(values), [numberOfIterations, numberOfSubjects]) || ...
+        any(~isfinite(values(:)))
+    error('groupSIFT:InvalidRandomizationPlan', ...
+        '%s must be a finite numIterations-by-subject matrix.', fieldName);
+end
+if strcmp(fieldName, 'signs') && any(~ismember(values(:), [-1, 1]))
+    error('groupSIFT:InvalidRandomizationPlan', ...
+        'Every entry in signs must be -1 or 1.');
+end
 end

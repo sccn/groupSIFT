@@ -19,7 +19,8 @@ If you are interested in learning basic SIFT functions using its own built-in si
     project, I updated it for Matlab 2017b, EEGLAB 14.1.2, and SIFT 1.52
     (with customized movie function). I have not fully investigated
     dependency on different environments other than Linux. Matlab Image
-    Processing Toolbox is necessary to use bwlabel().
+    Processing Toolbox is necessary to use `bwlabeln()`. Statistics and
+    Machine Learning Toolbox is also required for the statistical tests.
 
 # Required preprocessing
 
@@ -140,6 +141,21 @@ cluster-level correction. The *mass of cluster*, sum of t-scores within
 each pixel cluster, is pooled from ALL the edges to determine the
 omnibus correction criterion.
 
+For paired analyses, subject identity is determined from `fileNameList`.
+The subject ID is the exact filename after removing its path and final
+extension; matching is case-insensitive. Subject order is aligned before
+statistics, and an edge-specific missing subject is removed jointly from
+all paired cells. Two-condition inputs must therefore contain either the
+same subject-ID set (paired) or disjoint sets (independent). Partial
+overlap is rejected as an ambiguous design. For 2-by-2 analyses, the
+supported designs are fully repeated, mixed with paired cells 1/2 and
+3/4 in disjoint groups, or four fully independent cells.
+
+The cluster test is two-sided. Positive and negative clusters are formed
+separately, and the requested cluster-level alpha is divided equally
+between the two tails. Paired permutations exchange condition labels
+within each subject (equivalently, sign-flip paired differences).
+
 ## 5.Show pre-selected ROIs
 
 This plot shows the preselected pairwise dipole density (i.e.,
@@ -175,23 +191,14 @@ hypothesis-driven ROI analysis.
 \-**Use GFWER (u=1)**(checkbox)--GFWER stands for *generalized* (weak)
 family-wise error rate. 'Weak' means using cluster-level correction.
 
-The trade off you make here is that you gain more detection power at the
-cost of the fact that you accept maximum 1 (hence u=1) false positive
-result (in your case, one cluster of pixels) present in your result.
-This may sound unusual and even scary, but remember that you are already
-always accepting 5% of false positive results which is usually WAY
-larger than 1. How it works is as follows. GFWER does not pick up the
-max/min statistics from each iteration of permutation trial, but the
-*second to max/min* (only one next to the max/min, hence u=1). This
-approach is to gain statistical sensitivity at the cost of known number
-of false positive results (here, u=1 i.e., one *mass of cluster* in your
-data is known to be a result of false positive). You may wonder if this
-is meaningful thing to do. It is, because a distributions of surrogate
-statistics tend to have outliers in tails. Removing the leftmost and
-rightmost values from the tails can in most cases greatly ease the
-extreme value statistics. You can try to find out how effective this
-trade could be, as it is calculated altogether anyway. By the way, this
-option is only usable when 'MCC for graph edges' option is checked.
+This option gains detection power by controlling the probability of
+more than one false-positive cluster, rather than controlling the
+probability of one or more false-positive clusters. It uses the second
+most extreme cluster statistic from each permutation (u=1). This does
+not mean that one reported cluster is known to be false positive, nor
+does it guarantee that at most one false positive will occur in every
+dataset. This option is only usable when 'MCC for graph edges' is
+checked and at least two graph edges are tested.
 
 Below, three statistical results are shown from the same data. From
 left, graph-edge MCC on, graph-edge MCC on with GFWER, and graph-edge
