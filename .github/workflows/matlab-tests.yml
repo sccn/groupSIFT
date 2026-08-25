@@ -1,0 +1,25 @@
+name: MATLAB tests
+
+on:
+  push:
+    branches:
+      - master
+      - maintenance/**
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up MATLAB
+        uses: matlab-actions/setup-matlab@v3
+        with:
+          products: Statistics_and_Machine_Learning_Toolbox Image_Processing_Toolbox
+
+      - name: Run MATLAB tests
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath(genpath(pwd)); results = runtests('tests'); assertSuccess(results);

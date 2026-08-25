@@ -306,7 +306,7 @@ for setIdx = 1:length(allFiles)
     EEG = pop_loadset('filename', loadName, 'filepath', workingFolder);
 
     %% STEP 2: Define key Processing Parameters
-    Components        = 1:size(EEG.icaweights);       % these are the components/channels to which we'll fit our multivariate model
+    Components        = 1:size(EEG.icaweights, 1);    % components/channels used for the multivariate model
     
     switch get(handles.singleWindowCheckbox, 'Value')
         case 0

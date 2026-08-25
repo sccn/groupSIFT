@@ -167,6 +167,9 @@ if ~any(workingFolder)
     disp('Cancelled.')
     return
 end
+if ischar(allFiles)
+    allFiles = {allFiles};
+end
 
 % Display process start
 disp(sprintf('\n'))
@@ -218,16 +221,17 @@ for n = 1:length(ALLEEG)
         dipoleLocation(m,:) = selectDipWithLargerMoment(ALLEEG(n).dipfit.model(m).posxyz, ALLEEG(n).dipfit.model(m).momxyz);
         dipoleResidualVariance(m) = ALLEEG(n).dipfit.model(m).rv;
     end;
-    dipoleId = (dipoleCounter+1):(dipoleCounter+length(dipoleLocation));
-    dipoleCounter = dipoleCounter + length(dipoleLocation);
+    numberOfDipoles = size(dipoleLocation, 1);
+    dipoleId = (dipoleCounter+1):(dipoleCounter+numberOfDipoles);
+    dipoleCounter = dipoleCounter + numberOfDipoles;
     
-    for m = 1:length(dipoleLocation) % from location: confirm it with ALLEEG(1,1).CAT.Conn: dims: {'var_to'  'var_from'  'freq'  'time'}
-        for k = 1:length(dipoleLocation) % to location
+    for m = 1:numberOfDipoles % from location: confirm it with ALLEEG(1,1).CAT.Conn: dims: {'var_to'  'var_from'  'freq'  'time'}
+        for k = 1:numberOfDipoles % to location
            %dipolePairAndMeasureObj.from.location = cat(1, dipolePairAndMeasureObj.from.location, ALLEEG(n).dipfit.model(m).posxyz(1,:));
             dipolePairAndMeasureObj.from.location = cat(1, dipolePairAndMeasureObj.from.location, selectDipWithLargerMoment(ALLEEG(n).dipfit.model(m).posxyz, ALLEEG(n).dipfit.model(m).momxyz));
             dipolePairAndMeasureObj.from.residualVariance(end+1,1) = ALLEEG(n).dipfit.model(m).rv;
            %dipolePairAndMeasureObj.to.location = cat(1, dipolePairAndMeasureObj.to.location, ALLEEG(n).dipfit.model(k).posxyz(1,:));
-            dipolePairAndMeasureObj.to.location = cat(1, dipolePairAndMeasureObj.to.location, selectDipWithLargerMoment(ALLEEG(n).dipfit.model(m).posxyz, ALLEEG(n).dipfit.model(m).momxyz));
+            dipolePairAndMeasureObj.to.location = cat(1, dipolePairAndMeasureObj.to.location, selectDipWithLargerMoment(ALLEEG(n).dipfit.model(k).posxyz, ALLEEG(n).dipfit.model(k).momxyz));
             if m == k
                 dipolePairAndMeasureObj.linearizedMeasure(counter,:) = zeros(timeFreqSize(1)*timeFreqSize(2),1);
             else
@@ -808,6 +812,9 @@ if ~any(workingFolder)
     disp('Cancelled.')
     return
 end
+if ischar(allFiles)
+    allFiles = {allFiles};
+end
 
 % Move to the working folder
 cd(workingFolder)
@@ -858,8 +865,9 @@ for n = 1:length(ALLEEG)
         dipoleLocation(m,:)       = selectDipWithLargerMoment(ALLEEG(n).dipfit.model(m).posxyz, ALLEEG(n).dipfit.model(m).momxyz);
         dipoleResidualVariance(m) = ALLEEG(n).dipfit.model(m).rv;
     end;
-    dipoleId = (dipoleCounter+1):(dipoleCounter+length(dipoleLocation));
-    dipoleCounter = dipoleCounter + length(dipoleLocation);
+    numberOfDipoles = size(dipoleLocation, 1);
+    dipoleId = (dipoleCounter+1):(dipoleCounter+numberOfDipoles);
+    dipoleCounter = dipoleCounter + numberOfDipoles;
     
     for m = 1:size(dipoleLocation,1) % from location: confirm it with ALLEEG(1,1).CAT.Conn: dims: {'var_to'  'var_from'  'freq'  'time'}
         for k = 1:size(dipoleLocation,1) % to location
@@ -867,7 +875,7 @@ for n = 1:length(ALLEEG)
             dipolePairAndMeasureObj.from.location = cat(1, dipolePairAndMeasureObj.from.location, selectDipWithLargerMoment(ALLEEG(n).dipfit.model(m).posxyz, ALLEEG(n).dipfit.model(m).momxyz));
             dipolePairAndMeasureObj.from.residualVariance(end+1,1) = ALLEEG(n).dipfit.model(m).rv;
            %dipolePairAndMeasureObj.to.location = cat(1, dipolePairAndMeasureObj.to.location, ALLEEG(n).dipfit.model(m).posxyz(1,:));
-            dipolePairAndMeasureObj.to.location = cat(1, dipolePairAndMeasureObj.to.location, selectDipWithLargerMoment(ALLEEG(n).dipfit.model(m).posxyz, ALLEEG(n).dipfit.model(m).momxyz));
+            dipolePairAndMeasureObj.to.location = cat(1, dipolePairAndMeasureObj.to.location, selectDipWithLargerMoment(ALLEEG(n).dipfit.model(k).posxyz, ALLEEG(n).dipfit.model(k).momxyz));
             if m == k
                 dipolePairAndMeasureObj.linearizedMeasure(counter,:) = zeros(timeFreqSize(1)*timeFreqSize(2),1);
             else

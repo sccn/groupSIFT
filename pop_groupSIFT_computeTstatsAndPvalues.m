@@ -328,20 +328,98 @@ end
 
 
 % 06/26/2020 Updated. Now takes 2-D input for resting-state data. Makoto.
-function output = excludeMissingValue(input)
+function [output, presentMask] = excludeMissingValue(input)
+presentMask = subjectPresentMask(input);
+output = selectSubjects(input, presentMask);
 
-if length(size(input)) == 2
-    
-    missingValueIdx = find(sum(abs(input),1)==0);
-    dataPresentIdx  = setdiff(1:size(input,2), missingValueIdx);
-    output          = input(:,dataPresentIdx);
-    
-elseif length(size(input)) == 3
-    
-    % Exclude subjects with missing values.
-    missingValueIdx = find(squeeze(sum(sum(abs(input),1),2))==0);
-    dataPresentIdx  = setdiff(1:size(input,3), missingValueIdx);
-    output          = input(:,:,dataPresentIdx);
+
+function [output1, output2, jointPresentMask] = excludeMissingValuePair(input1, input2)
+% Exclude a subject only if either paired cell is missing, preserving pairs.
+presentMask1 = subjectPresentMask(input1);
+presentMask2 = subjectPresentMask(input2);
+if numel(presentMask1) ~= numel(presentMask2)
+    error('groupSIFT:PairedSubjectDimensionMismatch', ...
+        'Paired inputs have different subject dimensions after fileNameList alignment.');
+end
+jointPresentMask = presentMask1 & presentMask2;
+output1 = selectSubjects(input1, jointPresentMask);
+output2 = selectSubjects(input2, jointPresentMask);
+
+
+function [output1, output2, output3, output4, jointPresentMask] = excludeMissingValueFour(input1, input2, input3, input4)
+% Complete-case exclusion for a fully repeated 2-by-2 design.
+presentMasks = {subjectPresentMask(input1), subjectPresentMask(input2), ...
+    subjectPresentMask(input3), subjectPresentMask(input4)};
+subjectCounts = cellfun(@numel, presentMasks);
+if any(subjectCounts ~= subjectCounts(1))
+    error('groupSIFT:RepeatedSubjectDimensionMismatch', ...
+        'Fully repeated inputs have different subject dimensions after fileNameList alignment.');
+end
+jointPresentMask = presentMasks{1} & presentMasks{2} & presentMasks{3} & presentMasks{4};
+output1 = selectSubjects(input1, jointPresentMask);
+output2 = selectSubjects(input2, jointPresentMask);
+output3 = selectSubjects(input3, jointPresentMask);
+output4 = selectSubjects(input4, jointPresentMask);
+
+
+function presentMask = subjectPresentMask(input)
+if ndims(input) == 2
+    presentMask = sum(abs(input), 1) ~= 0;
+elseif ndims(input) == 3
+    presentMask = squeeze(sum(sum(abs(input), 1), 2))' ~= 0;
+else
+    error('groupSIFT:UnsupportedConnectivityDimensions', ...
+        'Connectivity data must be a 2-D or 3-D frequency-time-subject array.');
+end
+presentMask = logical(presentMask(:)');
+
+
+function output = selectSubjects(input, subjectMask)
+if ndims(input) == 2
+    output = input(:, subjectMask);
+else
+    output = input(:, :, subjectMask);
+end
+
+
+function randomizationUniform = createRandomizationUniform(numIterations, numberOfSubjects, randomizationSeed)
+% Generate once per analysis so every edge uses the same permutation row.
+previousRngState = rng;
+restoreRng = onCleanup(@() rng(previousRngState)); %#ok<NASGU>
+rng(randomizationSeed, 'twister');
+randomizationUniform = rand(numIterations, numberOfSubjects);
+
+
+function plan = makeSignPlan(randomizationUniform)
+plan.signs = ones(size(randomizationUniform));
+plan.signs(randomizationUniform < 0.5) = -1;
+
+
+function plan = makePermutationPlan(randomizationUniformByGroup)
+plan.uniformScores = [randomizationUniformByGroup{:}];
+
+
+function validateSubjectDimension(fileNameList, connectivityStack, conditionNumber)
+if numel(fileNameList) ~= size(connectivityStack, 5)
+    error('groupSIFT:FileNameListSizeMismatch', ...
+        ['Condition %d contains %.0f fileNameList entries but %.0f subjects in ' ...
+         'allConnectivityStack.'], conditionNumber, numel(fileNameList), size(connectivityStack, 5));
+end
+
+
+function tf = sameSubjectSet(subjectIds1, subjectIds2)
+tf = numel(subjectIds1) == numel(subjectIds2) && all(ismember(subjectIds1, subjectIds2));
+
+
+function tf = subjectSetsArePairwiseDisjoint(subjectIdLists)
+tf = true;
+for firstIdx = 1:numel(subjectIdLists)-1
+    for secondIdx = firstIdx+1:numel(subjectIdLists)
+        if ~isempty(intersect(subjectIdLists{firstIdx}, subjectIdLists{secondIdx}))
+            tf = false;
+            return
+        end
+    end
 end
 
 
@@ -523,6 +601,7 @@ disp(sprintf('\n'))
 
 % Set number of iterations for permutation test
 numIterations = str2num(get(handles.iterationEdit, 'String'));
+randomizationSeed = 2501;
 
 switch get(handles.numConditionPopupmenu, 'Value')
 
@@ -546,6 +625,10 @@ switch get(handles.numConditionPopupmenu, 'Value')
         % Find baseline index.
         userInputBaselinePeriod = str2num(get(handles.baselineEdit, 'String'));
         baselineIdx = find(latencies>userInputBaselinePeriod(1) & latencies<userInputBaselinePeriod(2));
+
+        % One randomization schedule is shared across all graph edges.
+        randomizationUniform1 = createRandomizationUniform( ...
+            numIterations, size(allConnectivityStack, 5), randomizationSeed);
         
         % Prepare a list to store processing time.
         processTimeList = zeros(length(finallySelectedEdgeIdx),1);
@@ -568,7 +651,9 @@ switch get(handles.numConditionPopupmenu, 'Value')
             [toIdx, fromIdx] = ind2sub(length(roiLabels), finallySelectedEdgeIdx(edgeIdxIdx));
             
             % Extract current time-frequency-subject matrix
-            tmpConnectivity = excludeMissingValue(squeeze(allConnectivityStack(toIdx, fromIdx, :, :, :)));
+            [tmpConnectivity, presentMask1] = excludeMissingValue( ...
+                squeeze(allConnectivityStack(toIdx, fromIdx, :, :, :)));
+            edgeRandomizationPlan = makeSignPlan(randomizationUniform1(:, presentMask1));
             
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %%% Compute cluster-level multiple-comparison correction (not corrected here yet) %%%
@@ -610,7 +695,8 @@ switch get(handles.numConditionPopupmenu, 'Value')
                 fullSizeBaseline,...           % Pre-stimulus datapoints (baseline)
                 1,...                          % This indicates paired t-test.
                 str2num(get(handles.pValEdit, 'String')),... % uncorr. p-val threhold for preselection (i.e. selecting pixels--this determines the cluster size)
-                numIterations); % Number of iterations.
+                numIterations,... % Number of iterations.
+                edgeRandomizationPlan);
             
             % Store the results
             clusterMask(edgeIdxIdx, :, :)    = edgeBlobMask;
@@ -633,7 +719,7 @@ switch get(handles.numConditionPopupmenu, 'Value')
             'tStatistics',...
             'pValues', 'finallySelectedEdgeIdx', 'connectivityType', ...
             'latencies', 'frequencies', 'dimensionLabels', 'fileNameList', 'baselineIdx', ...
-            'clusterMask', 'surroMassOfCluster', '-v7.3');
+            'clusterMask', 'surroMassOfCluster', 'randomizationSeed', '-v7.3');
      
         
         
@@ -690,36 +776,52 @@ switch get(handles.numConditionPopupmenu, 'Value')
         edgeIdx2                   = finallySelectedEdgeIdx;
         preselectedRoiIdx2         = preselectedRoiIdx;
         
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        %%% Check the overlap of the two finallySelectedEdgeIdx %%%
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % Take the overlap of the two connectivity matrices
-        finallySelectedEdgeIdx = intersect(edgeIdx1, edgeIdx2);
-            
-        if length(edgeIdx1) == sum(ismember(edgeIdx1, edgeIdx2))
-            repeatedMeasureFlag = 1;
-            disp('Will perform paired t-test.')
-        else
-            repeatedMeasureFlag = 0;
-            disp('Will perform two-sample t-test.')
+        % Match subjects by fileNameList, independently of edge selection.
+        validateSubjectDimension(fileNameList1, allConnectivityStack1, 1);
+        validateSubjectDimension(fileNameList2, allConnectivityStack2, 2);
+        [matchedSubjectIds, matchedSubjectIdx, ~, normalizedSubjectIds] = ...
+            groupSIFT_matchSubjects({fileNameList1, fileNameList2});
+        allSubjectsMatched = numel(matchedSubjectIds) == numel(normalizedSubjectIds{1}) && ...
+            numel(matchedSubjectIds) == numel(normalizedSubjectIds{2});
 
-            % Ask user to proceed or not with the current edges
-            qstring = sprintf('%.0f edges overlapped between the two conditions. Continue?', length(finallySelectedEdgeIdx));
-            userInput = questdlg(qstring, 'Confirmation');
-            if ~strcmp(userInput,'Yes')
-                disp('Aborted.')
-                return
-            end
-            
-            % Apply the intersectMask to allConnectivityStack to mask out edges that are unique to either of condition.
-            intersectMask = zeros(size(allConnectivityStack1,1)*size(allConnectivityStack1,2),1);
-            intersectMask(finallySelectedEdgeIdx) = 1;
-            intersectMask = reshape(intersectMask, [size(allConnectivityStack1,1) size(allConnectivityStack1,2)]);
-            allConnectivityStack1 = bsxfun(@times, allConnectivityStack1, intersectMask);
-            allConnectivityStack2 = bsxfun(@times, allConnectivityStack2, intersectMask);
-            dipolePairDensity1 = bsxfun(@times, dipolePairDensity1, intersectMask);
-            dipolePairDensity2 = bsxfun(@times, dipolePairDensity2, intersectMask);
+        if allSubjectsMatched
+            repeatedMeasureFlag = 1;
+            allConnectivityStack1 = allConnectivityStack1(:,:,:,:,matchedSubjectIdx{1});
+            allConnectivityStack2 = allConnectivityStack2(:,:,:,:,matchedSubjectIdx{2});
+            dipolePairDensity1 = dipolePairDensity1(:,:,matchedSubjectIdx{1});
+            dipolePairDensity2 = dipolePairDensity2(:,:,matchedSubjectIdx{2});
+            fileNameList1 = fileNameList1(matchedSubjectIdx{1});
+            fileNameList2 = fileNameList2(matchedSubjectIdx{2});
+            disp(sprintf('Will perform paired t-test on %.0f fileNameList-matched subjects.', numel(matchedSubjectIds)))
+        elseif isempty(matchedSubjectIds)
+            repeatedMeasureFlag = 0;
+            disp('Will perform independent-samples Welch t-test; fileNameList subject IDs are disjoint.')
+        else
+            error('groupSIFT:AmbiguousTwoConditionDesign', ...
+                ['The two fileNameList variables overlap only partially (%.0f matched subjects). ' ...
+                 'Provide either identical subject sets for a paired analysis or disjoint sets for an independent analysis.'], ...
+                numel(matchedSubjectIds));
         end
+
+        % Take the overlap of graph edges. Edge overlap never determines
+        % whether the statistical design is paired or independent.
+        finallySelectedEdgeIdx = intersect(edgeIdx1, edgeIdx2);
+
+        qstring = sprintf('%.0f edges overlapped between the two conditions. Continue?', length(finallySelectedEdgeIdx));
+        userInput = questdlg(qstring, 'Confirmation');
+        if ~strcmp(userInput,'Yes')
+            disp('Aborted.')
+            return
+        end
+
+        % Mask edges that are unique to either condition.
+        intersectMask = zeros(size(allConnectivityStack1,1)*size(allConnectivityStack1,2),1);
+        intersectMask(finallySelectedEdgeIdx) = 1;
+        intersectMask = reshape(intersectMask, [size(allConnectivityStack1,1) size(allConnectivityStack1,2)]);
+        allConnectivityStack1 = bsxfun(@times, allConnectivityStack1, intersectMask);
+        allConnectivityStack2 = bsxfun(@times, allConnectivityStack2, intersectMask);
+        dipolePairDensity1 = bsxfun(@times, dipolePairDensity1, intersectMask);
+        dipolePairDensity2 = bsxfun(@times, dipolePairDensity2, intersectMask);
         
         % Create the list of elapsed time.
         processTimeList = zeros(length(finallySelectedEdgeIdx),1);
@@ -733,16 +835,14 @@ switch get(handles.numConditionPopupmenu, 'Value')
         end
         
         % check consistency in frequencies
-        frequencyTest = ~(frequencies1 == frequencies2);
-        if ~any(frequencyTest)
+        if isequal(frequencies1, frequencies2)
             disp('Check2 OK: Frequency range consistent.')
         else
             error('Check2 NG: Frequency range inconsistent.')
         end
         
         % check consistency in latency.
-        latencyTest = ~(latencies1 == latencies2);
-        if ~any(latencyTest)
+        if isequal(latencies1, latencies2)
             disp('Check3 OK: Latencies consistent.')
         else
             if size(allConnectivityStack1,4)==1
@@ -781,6 +881,21 @@ switch get(handles.numConditionPopupmenu, 'Value')
         else
             baselineIdx = find(latencies>userInputBaselinePeriod(1) & latencies<userInputBaselinePeriod(2));
         end
+
+        % Generate one analysis-level schedule, then retain the columns for
+        % subjects present at each edge. This keeps permutation iteration i
+        % comparable across edges for the later max-statistic correction.
+        if repeatedMeasureFlag == 1
+            randomizationUniform1 = createRandomizationUniform( ...
+                numIterations, size(allConnectivityStack1, 5), randomizationSeed);
+        else
+            numberOfSubjects1 = size(allConnectivityStack1, 5);
+            numberOfSubjects2 = size(allConnectivityStack2, 5);
+            allRandomizationUniform = createRandomizationUniform( ...
+                numIterations, numberOfSubjects1 + numberOfSubjects2, randomizationSeed);
+            randomizationUniform1 = allRandomizationUniform(:, 1:numberOfSubjects1);
+            randomizationUniform2 = allRandomizationUniform(:, numberOfSubjects1 + 1:end);
+        end
         
         % Start the loop.
         tStatistics = single(zeros(length(finallySelectedEdgeIdx), size(allConnectivityStack1,3), size(allConnectivityStack1,4)));
@@ -802,8 +917,17 @@ switch get(handles.numConditionPopupmenu, 'Value')
             % Extract current time-frequency-subject matrix
             input1 = squeeze(allConnectivityStack1(toIdx, fromIdx, :, :, :));
             input2 = squeeze(allConnectivityStack2(toIdx, fromIdx, :, :, :));
-            tmpConnectivity1 = excludeMissingValue(input1);
-            tmpConnectivity2 = excludeMissingValue(input2);
+            if repeatedMeasureFlag == 1
+                [tmpConnectivity1, tmpConnectivity2, presentMask1] = ...
+                    excludeMissingValuePair(input1, input2);
+                edgeRandomizationPlan = makeSignPlan(randomizationUniform1(:, presentMask1));
+            else
+                [tmpConnectivity1, presentMask1] = excludeMissingValue(input1);
+                [tmpConnectivity2, presentMask2] = excludeMissingValue(input2);
+                edgeRandomizationPlan = makePermutationPlan( ...
+                    {randomizationUniform1(:, presentMask1), ...
+                     randomizationUniform2(:, presentMask2)});
+            end
             clear input1 input2
             
             if isempty(baselineIdx) % This is for resting-state analysis. 06/26/2020 Makoto.
@@ -831,7 +955,8 @@ switch get(handles.numConditionPopupmenu, 'Value')
                                                 connectivityToTest2,...
                                                 repeatedMeasureFlag,...  % Repeated measures flag
                                                 str2num(get(handles.pValEdit, 'String')),... % uncorr. p-val threhold for preselection (i.e. selecting pixels--this determines the cluster size)
-                                                numIterations); % Number of iterations.
+                                                numIterations,... % Number of iterations.
+                                                edgeRandomizationPlan);
                 
             else
                 % Subtract mean baseline value
@@ -855,7 +980,8 @@ switch get(handles.numConditionPopupmenu, 'Value')
                     baseSubtractedConnectivity2,...
                     repeatedMeasureFlag,...  % Repeated measures flag
                     str2num(get(handles.pValEdit, 'String')),... % uncorr. p-val threhold for preselection (i.e. selecting pixels--this determines the cluster size)
-                    numIterations); % Number of iterations.
+                    numIterations,... % Number of iterations.
+                    edgeRandomizationPlan);
             end
             
             % Store the results
@@ -879,7 +1005,7 @@ switch get(handles.numConditionPopupmenu, 'Value')
             'tStatistics', 'tStatistics_beforeSubtraction1', 'tStatistics_beforeSubtraction2',...
             'pValues', 'finallySelectedEdgeIdx', 'connectivityType', ...
             'latencies', 'frequencies', 'dimensionLabels', 'fileNameList', 'baselineIdx',...
-            'clusterMask', 'surroMassOfCluster', '-v7.3');
+            'clusterMask', 'surroMassOfCluster', 'randomizationSeed', '-v7.3');
         
         % Save the merged '_dipolePairDensity' for this new folder
         save([savePath filesep saveFileName '_dipolePairDensity'],...
@@ -990,25 +1116,68 @@ switch get(handles.numConditionPopupmenu, 'Value')
         edgeIdx4                   = finallySelectedEdgeIdx;
         preselectedRoiIdx4         = preselectedRoiIdx;
         
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        %%% Check the overlap of the two finallySelectedEdgeIdx %%%
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % Take the overlap of the two connectivity matrices
-        finallySelectedEdgeIdx = intersect(intersect(edgeIdx1, edgeIdx2), intersect(edgeIdx3, edgeIdx4));
-        
-        % All repeated measures
-        if length(finallySelectedEdgeIdx) == sum(ismember(edgeIdx1, edgeIdx2)) & sum(ismember(edgeIdx1, edgeIdx3)) == sum(ismember(edgeIdx2, edgeIdx4))
-            repeatedMeasureFlag = 1; % Repeated measures ANOVA.
-            disp('Will perform fixed-effect test.')
-            
-        elseif length(edgeIdx1) == sum(ismember(edgeIdx1, edgeIdx2)) & length(edgeIdx3) == sum(ismember(edgeIdx3, edgeIdx4))
-            repeatedMeasureFlag = 2; % Mixed design ANOVA.
-            disp('Will perform mixed-effect test; within-subject paires are (1,2) and (3,4).')
-        
+        % Determine the 2-by-2 design from fileNameList subject IDs.
+        validateSubjectDimension(fileNameList1, allConnectivityStack1, 1);
+        validateSubjectDimension(fileNameList2, allConnectivityStack2, 2);
+        validateSubjectDimension(fileNameList3, allConnectivityStack3, 3);
+        validateSubjectDimension(fileNameList4, allConnectivityStack4, 4);
+        [matchedAllIds, matchedAllIdx, ~, normalizedSubjectIds] = ...
+            groupSIFT_matchSubjects({fileNameList1, fileNameList2, fileNameList3, fileNameList4});
+
+        same12 = sameSubjectSet(normalizedSubjectIds{1}, normalizedSubjectIds{2});
+        same13 = sameSubjectSet(normalizedSubjectIds{1}, normalizedSubjectIds{3});
+        same14 = sameSubjectSet(normalizedSubjectIds{1}, normalizedSubjectIds{4});
+        same34 = sameSubjectSet(normalizedSubjectIds{3}, normalizedSubjectIds{4});
+        allRepeated = same12 && same13 && same14;
+        mixedDesign = same12 && same34 && ...
+            isempty(intersect(normalizedSubjectIds{1}, normalizedSubjectIds{3}));
+        allIndependent = subjectSetsArePairwiseDisjoint(normalizedSubjectIds);
+
+        if allRepeated
+            repeatedMeasureFlag = 1;
+            allConnectivityStack1 = allConnectivityStack1(:,:,:,:,matchedAllIdx{1});
+            allConnectivityStack2 = allConnectivityStack2(:,:,:,:,matchedAllIdx{2});
+            allConnectivityStack3 = allConnectivityStack3(:,:,:,:,matchedAllIdx{3});
+            allConnectivityStack4 = allConnectivityStack4(:,:,:,:,matchedAllIdx{4});
+            dipolePairDensity1 = dipolePairDensity1(:,:,matchedAllIdx{1});
+            dipolePairDensity2 = dipolePairDensity2(:,:,matchedAllIdx{2});
+            dipolePairDensity3 = dipolePairDensity3(:,:,matchedAllIdx{3});
+            dipolePairDensity4 = dipolePairDensity4(:,:,matchedAllIdx{4});
+            fileNameList1 = fileNameList1(matchedAllIdx{1});
+            fileNameList2 = fileNameList2(matchedAllIdx{2});
+            fileNameList3 = fileNameList3(matchedAllIdx{3});
+            fileNameList4 = fileNameList4(matchedAllIdx{4});
+            disp(sprintf('Will perform a fully repeated 2-by-2 test on %.0f matched subjects.', numel(matchedAllIds)))
+        elseif mixedDesign
+            repeatedMeasureFlag = 2;
+            [matched12, matched12Idx] = groupSIFT_matchSubjects({fileNameList1, fileNameList2});
+            [matched34, matched34Idx] = groupSIFT_matchSubjects({fileNameList3, fileNameList4});
+            allConnectivityStack1 = allConnectivityStack1(:,:,:,:,matched12Idx{1});
+            allConnectivityStack2 = allConnectivityStack2(:,:,:,:,matched12Idx{2});
+            allConnectivityStack3 = allConnectivityStack3(:,:,:,:,matched34Idx{1});
+            allConnectivityStack4 = allConnectivityStack4(:,:,:,:,matched34Idx{2});
+            dipolePairDensity1 = dipolePairDensity1(:,:,matched12Idx{1});
+            dipolePairDensity2 = dipolePairDensity2(:,:,matched12Idx{2});
+            dipolePairDensity3 = dipolePairDensity3(:,:,matched34Idx{1});
+            dipolePairDensity4 = dipolePairDensity4(:,:,matched34Idx{2});
+            fileNameList1 = fileNameList1(matched12Idx{1});
+            fileNameList2 = fileNameList2(matched12Idx{2});
+            fileNameList3 = fileNameList3(matched34Idx{1});
+            fileNameList4 = fileNameList4(matched34Idx{2});
+            disp(sprintf(['Will perform a mixed 2-by-2 test with %.0f matched subjects in cells 1/2 ' ...
+                'and %.0f matched subjects in cells 3/4.'], numel(matched12), numel(matched34)))
+        elseif allIndependent
+            repeatedMeasureFlag = 3;
+            disp('Will perform an independent-cell 2-by-2 test; all fileNameList subject sets are disjoint.')
         else
-            repeatedMeasureFlag = 3; % Non-repeated measures ANOVA.
-            disp('Will perform random-effect test.')
+            error('groupSIFT:AmbiguousTwoByTwoDesign', ...
+                ['fileNameList subject IDs do not define a supported design. Use identical IDs in all four cells, ' ...
+                 'identical IDs within cells 1/2 and 3/4 with disjoint groups, or four pairwise-disjoint sets.']);
         end
+
+        % Take the overlap of graph edges. Edge overlap never determines
+        % the repeated, mixed, or independent statistical design.
+        finallySelectedEdgeIdx = intersect(intersect(edgeIdx1, edgeIdx2), intersect(edgeIdx3, edgeIdx4));
         
         % Ask user whether to proceed with the given edges.
         qstring = sprintf('%.0f edges overlapped across conditions. Continue?', length(finallySelectedEdgeIdx));
@@ -1024,6 +1193,8 @@ switch get(handles.numConditionPopupmenu, 'Value')
         intersectMask = reshape(intersectMask, [size(allConnectivityStack1,1) size(allConnectivityStack1,2)]);
         allConnectivityStack1 = bsxfun(@times, allConnectivityStack1, intersectMask);
         allConnectivityStack2 = bsxfun(@times, allConnectivityStack2, intersectMask);
+        allConnectivityStack3 = bsxfun(@times, allConnectivityStack3, intersectMask);
+        allConnectivityStack4 = bsxfun(@times, allConnectivityStack4, intersectMask);
         dipolePairDensity1 = bsxfun(@times, dipolePairDensity1, intersectMask);
         dipolePairDensity2 = bsxfun(@times, dipolePairDensity2, intersectMask);
         dipolePairDensity3 = bsxfun(@times, dipolePairDensity3, intersectMask);
@@ -1033,7 +1204,9 @@ switch get(handles.numConditionPopupmenu, 'Value')
         processTimeList = zeros(length(finallySelectedEdgeIdx),1);
         
         % Check consistency in connectivity algorithm
-        connectivityTest = strcmp(connectivityType1, connectivityType2);
+        connectivityTest = strcmp(connectivityType1, connectivityType2) && ...
+            strcmp(connectivityType1, connectivityType3) && ...
+            strcmp(connectivityType1, connectivityType4);
         if connectivityTest == 1
             disp('Check1 OK: Connectivity algorithm consistent.')
         else
@@ -1041,16 +1214,16 @@ switch get(handles.numConditionPopupmenu, 'Value')
         end
         
         % check consistency in frequencies
-        frequencyTest = ~(frequencies1 == frequencies2) | ~(frequencies3 == frequencies4) | ~(frequencies1 == frequencies3);
-        if ~any(frequencyTest)
+        if isequal(frequencies1, frequencies2) && isequal(frequencies1, frequencies3) && ...
+                isequal(frequencies1, frequencies4)
             disp('Check2 OK: Frequency range consistent.')
         else
             error('Check2 NG: Frequency range inconsistent.')
         end
         
         % check consistency in latency
-        latencyTest = ~(latencies1 == latencies2) | ~(latencies3 == latencies4) | ~(latencies1 == latencies3);
-        if ~any(latencyTest)
+        if isequal(latencies1, latencies2) && isequal(latencies1, latencies3) && ...
+                isequal(latencies1, latencies4)
             disp('Check3 OK: Latencies consistent.')
         else
             error('Check3 NG: Latencies inconsistent.')
@@ -1068,13 +1241,37 @@ switch get(handles.numConditionPopupmenu, 'Value')
         fileNameList{1,3} = fileNameList3;
         fileNameList{1,4} = fileNameList4;        
         dipoleProbabilityInRegion = [dipoleProbabilityInRegion1; dipoleProbabilityInRegion2; dipoleProbabilityInRegion3; dipoleProbabilityInRegion4];
-        preselectedRoiIdx = intersect(preselectedRoiIdx1, preselectedRoiIdx2);
+        preselectedRoiIdx = intersect(intersect(preselectedRoiIdx1, preselectedRoiIdx2), ...
+            intersect(preselectedRoiIdx3, preselectedRoiIdx4));
         clear connectivityType1 connectivityType2 connectivityType3 connectivityType4 frequencies1 frequencies2 frequencies3 frequencies4
         clear latencies1 latencies2 latencies3 latencies4 fileNameList1 fileNameList2 fileNameList3 fileNameList4
         
         % Find baseline index.
         userInputBaselinePeriod = str2num(get(handles.baselineEdit, 'String'));
         baselineIdx = find(latencies>userInputBaselinePeriod(1) & latencies<userInputBaselinePeriod(2));
+
+        % Generate one analysis-level schedule for all graph edges.
+        if repeatedMeasureFlag == 1
+            randomizationUniform1 = createRandomizationUniform( ...
+                numIterations, size(allConnectivityStack1, 5), randomizationSeed);
+        elseif repeatedMeasureFlag == 2
+            numberOfSubjects1 = size(allConnectivityStack1, 5);
+            numberOfSubjects3 = size(allConnectivityStack3, 5);
+            allRandomizationUniform = createRandomizationUniform( ...
+                numIterations, numberOfSubjects1 + numberOfSubjects3, randomizationSeed);
+            randomizationUniform1 = allRandomizationUniform(:, 1:numberOfSubjects1);
+            randomizationUniform3 = allRandomizationUniform(:, numberOfSubjects1 + 1:end);
+        else
+            numberOfSubjects = [size(allConnectivityStack1, 5), size(allConnectivityStack2, 5), ...
+                size(allConnectivityStack3, 5), size(allConnectivityStack4, 5)];
+            allRandomizationUniform = createRandomizationUniform( ...
+                numIterations, sum(numberOfSubjects), randomizationSeed);
+            randomizationOffsets = [0, cumsum(numberOfSubjects)];
+            randomizationUniform1 = allRandomizationUniform(:, randomizationOffsets(1)+1:randomizationOffsets(2));
+            randomizationUniform2 = allRandomizationUniform(:, randomizationOffsets(2)+1:randomizationOffsets(3));
+            randomizationUniform3 = allRandomizationUniform(:, randomizationOffsets(3)+1:randomizationOffsets(4));
+            randomizationUniform4 = allRandomizationUniform(:, randomizationOffsets(4)+1:randomizationOffsets(5));
+        end
         
         % Start the loop.
         tStatistics = single(zeros(length(finallySelectedEdgeIdx), size(allConnectivityStack1,3), size(allConnectivityStack1,4)));
@@ -1096,10 +1293,32 @@ switch get(handles.numConditionPopupmenu, 'Value')
             [toIdx, fromIdx] = ind2sub(length(roiLabels), finallySelectedEdgeIdx(edgeIdxIdx));
             
             % Extract current time-frequency-subject matrix
-            tmpConnectivity1 = excludeMissingValue(squeeze(allConnectivityStack1(toIdx, fromIdx, :, :, :)));
-            tmpConnectivity2 = excludeMissingValue(squeeze(allConnectivityStack2(toIdx, fromIdx, :, :, :)));
-            tmpConnectivity3 = excludeMissingValue(squeeze(allConnectivityStack3(toIdx, fromIdx, :, :, :)));
-            tmpConnectivity4 = excludeMissingValue(squeeze(allConnectivityStack4(toIdx, fromIdx, :, :, :)));
+            input1 = squeeze(allConnectivityStack1(toIdx, fromIdx, :, :, :));
+            input2 = squeeze(allConnectivityStack2(toIdx, fromIdx, :, :, :));
+            input3 = squeeze(allConnectivityStack3(toIdx, fromIdx, :, :, :));
+            input4 = squeeze(allConnectivityStack4(toIdx, fromIdx, :, :, :));
+            if repeatedMeasureFlag == 1
+                [tmpConnectivity1, tmpConnectivity2, tmpConnectivity3, tmpConnectivity4, presentMask1] = ...
+                    excludeMissingValueFour(input1, input2, input3, input4);
+                edgeRandomizationPlan = makeSignPlan(randomizationUniform1(:, presentMask1));
+            elseif repeatedMeasureFlag == 2
+                [tmpConnectivity1, tmpConnectivity2, presentMask1] = excludeMissingValuePair(input1, input2);
+                [tmpConnectivity3, tmpConnectivity4, presentMask3] = excludeMissingValuePair(input3, input4);
+                edgeRandomizationPlan = makePermutationPlan( ...
+                    {randomizationUniform1(:, presentMask1), ...
+                     randomizationUniform3(:, presentMask3)});
+            else
+                [tmpConnectivity1, presentMask1] = excludeMissingValue(input1);
+                [tmpConnectivity2, presentMask2] = excludeMissingValue(input2);
+                [tmpConnectivity3, presentMask3] = excludeMissingValue(input3);
+                [tmpConnectivity4, presentMask4] = excludeMissingValue(input4);
+                edgeRandomizationPlan = makePermutationPlan( ...
+                    {randomizationUniform1(:, presentMask1), ...
+                     randomizationUniform2(:, presentMask2), ...
+                     randomizationUniform3(:, presentMask3), ...
+                     randomizationUniform4(:, presentMask4)});
+            end
+            clear input1 input2 input3 input4
                         
             % Subtract mean baseline value
             baseSubtractedConnectivity1 = bsxfun(@minus, tmpConnectivity1, mean(tmpConnectivity1(:,baselineIdx,:),2));
@@ -1129,7 +1348,8 @@ switch get(handles.numConditionPopupmenu, 'Value')
                 baseSubtractedConnectivity4,...
                 repeatedMeasureFlag,...  % Repeated measures flag
                 str2num(get(handles.pValEdit, 'String')),... % uncorr. p-val threhold for preselection (i.e. selecting pixels--this determines the cluster size)
-                numIterations); % Number of iterations.
+                numIterations,... % Number of iterations.
+                edgeRandomizationPlan);
             
             % Store the results
             clusterMask(edgeIdxIdx, :, :)    = edgeBlobMask;
@@ -1154,7 +1374,7 @@ switch get(handles.numConditionPopupmenu, 'Value')
             'tStatistics_beforeSubtraction4',...
             'pValues', 'finallySelectedEdgeIdx', 'connectivityType', ...
             'latencies', 'frequencies', 'dimensionLabels', 'fileNameList', 'baselineIdx',...
-            'clusterMask', 'surroMassOfCluster', '-v7.3');
+            'clusterMask', 'surroMassOfCluster', 'randomizationSeed', '-v7.3');
         
         % Save the merged '_dipolePairDensity' for this new folder
         save([savePath filesep saveFileName '_dipolePairDensity'],...
